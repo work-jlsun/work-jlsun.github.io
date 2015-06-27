@@ -16,9 +16,11 @@ tags:
 How to recover a single node from power failure。
 
 * wait for reboot
+
 Data is durable, but service is unavailable temporarily。
 
 * Use multiple nodes to provide service
+
 Another node takes over to provide service, How to make sure nodes respond in the same way?
 
 对于无状态的服务器而言，没有关系。对于有状态的服务器而言,如何去保证 take over的服务器提供正确的服务?
