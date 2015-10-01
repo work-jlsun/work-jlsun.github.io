@@ -13,10 +13,10 @@ corp
 
 find me
 
-> [weibo](http://weibo.com/u/1527291873)
+> weibo: http://weibo.com/u/1527291873
 
-> [gmail](work.jlsun@gmail.com)
+> gmail: work.jlsun@gmail.com
 
-> [github](https://github.com/waynezhang)
+> github: https://github.com/work-jlsun
 
 
