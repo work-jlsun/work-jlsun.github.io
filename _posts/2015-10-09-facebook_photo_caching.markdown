@@ -1,9 +1,9 @@
 ---
-title: 'An Analysis of Facebook Photo Caching 浅析'
+title: 'Facebook图片服务堆栈浅析'
 layout: post
 tags:
-    - 交流
-    - 云存储、cdn
+    - 云存储
+    - CDN
 ---
 
 此文 [An Analysis of Facebook Photo Caching](http://www.cs.cornell.edu/~qhuang/papers/sosp_fbanalysis.pdf)是facebook发表在OSDI 2010年的文章Finding a needle in Haystack: facebook’s photo storage的后续。 分析facabook图片系统的整个堆栈, 通过trace 1, 000, 000张不同的照片上77,000,000次访问。 总结了访问的traffic pattern, cache access pattern, geolocation of clients and servers等规律, 并探索了照片内容和它被访问模式之间的关系。 以下为仔细阅读此文的一些公司内部分享总结文档。
@@ -244,7 +244,7 @@ photo的流行特性，跟图片的age即social-networking metrics 有很大的�
 * 模拟测试表明在edge和Origin缓存层次使用S4LRU淘汰算法可能非常有益
 * photo的流行特性，跟图片的age及social-networking metrics 有很大的关联性
 
-NOS借鉴点
+NOS(Netease Object Storage)借鉴点
 
 * origin cache，减小 disk IO：对于易信这样的独立服务，对小对象跟产品一起合作做一层Origin Cache缓存，能够大量减小 disk IO，减少对NOS及SDFS层次压力，减少不少成本。
 * 多级缓存：缓存替换算法，使用类似S4LRU算法，或者说类似于多层次IO进一步提高命中率，减小后端I/O压力
