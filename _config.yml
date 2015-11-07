@@ -70,7 +70,9 @@ theme: maupassant
 # Deployment
 ## Docs: http://hexo.io/docs/deployment.html
 deploy:
-  type:
+  type:github
+  repository:git@github.com:work-jlsun/work-jlsun.github.io.git
+  branch:master
 
 fancybox: true
 #duoshuo: duoshuo_shortname
