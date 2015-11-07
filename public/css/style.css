@@ -198,11 +198,18 @@ a:focus {
         padding: 3px 5px;
         border: 1px solid #ddd; }
       .post .post-content p a {
+        color: #01579f;
         padding-bottom: 2px;
-        border-bottom: 1px solid #aaa;
         word-break: break-all; }
         .post .post-content p a:hover {
           border-bottom-color: #444; }
+      .post .post-content p .caption {
+        color: #444;
+        display: block;
+        font-size: 0.9em;
+        margin-top: 0.1em;
+        position: relative;
+        text-align: center; }
     .post .post-content hr {
       margin: 2.4em auto;
       border: none;
@@ -210,7 +217,9 @@ a:focus {
       position: relative; }
     .post .post-content img {
       max-width: 100%;
-      padding: 1em 0; }
+      padding: 0.5em 0;
+      margin: auto;
+      display: block; }
     .post .post-content ul, .post .post-content ol {
       overflow: auto;
       padding: .5em 2.4em;
