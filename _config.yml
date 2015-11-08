@@ -70,14 +70,14 @@ theme: maupassant
 # Deployment
 ## Docs: http://hexo.io/docs/deployment.html
 deploy:
-  type:github
-  repository:git@github.com:work-jlsun/work-jlsun.github.io.git
-  branch:master
+  type: git
+  repository: https://github.com/work-jlsun/work-jlsun.github.io.git
+  branch: master
 
 fancybox: true
 #duoshuo: duoshuo_shortname
 #disqus: disqus_shortname
-disqus: disqus_KlauA7LYJe
+disqus: httpworkjlsungithubio
 google_search: true
 #baidu_search: #baidu_search
 #swiftype: swiftype_key
