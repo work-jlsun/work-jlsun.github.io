@@ -1,43 +1,17 @@
-<a id="rocket" href="#top" class="show"></a><html><head><meta http-equiv="content-type" content="text/html; charset=utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/><meta content="yes" name="apple-mobile-web-app-capable"/><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/><meta content="telephone=no" name="format-detection"/><meta name="description"/><title>一道笔试题 | Tom Talk</title><link rel="stylesheet" type="text/css" href="/css/normalize.css"/><link rel="stylesheet" type="text/css" href="/css/pure-min.css"/><link rel="stylesheet" type="text/css" href="/css/grids-responsive-min.css"/><link rel="stylesheet" type="text/css" href="/css/style.css"/><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"/><link rel="alternate" type="application/atom+xml" href="/atom.xml"/></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">一道笔试题</h1><a id="logo" href="/">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/" class="current"><i class="icon-home"> 首页</i></a><a href="/archives/"><i class="icon-archive"> 归档</i></a><a href="/about/"><i class="icon-about"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post post-page"><h1 class="post-title">一道笔试题</h1><div class="post-meta">2016-02-22 | <span class="categories">分类于<a href="/categories/code/">code</a></span></div><span data-disqus-identifier="/2016/02/22/code.html" class="disqus-comment-count"></span><div class="post-content"><p>题目：过年了，考拉哥哥搞了一批礼品券出售。每张礼品券上有个涂层，用户刮开涂层后，将涂层背后的16位卡密输入到考拉就可以兑换相应的券。在印刷礼品券的时候，印刷出来后我们才发现印刷的g和9长的一摸一样。此时，后台数据库由于对卡密做了三次加密无法破解，卖出去的礼品券无法收回。为了保证礼品卡能正常使用，我们的解决方案如下，即对所有的g和数字9进行模糊匹配（已验证该方案下当前批次的礼品券卡密不会出现重复）。现在要求，用户输入一串十六位的卡密，找出所有相似的卡密。即如果用户输入是99xxx,则卡密ggxxx,g9xxx,9gxxx,99xxx都应匹配。</p>
-<p>解题思路: 忽略其他客观因素，此题基本就是求所有g和9位置替换成9或g的排列组合，举例9gxx，如图一所示，所有可能组合为如下二叉树的路径组合(向左走为9，向右走为g，二叉树深度即为9和g<br>的数目)，所以此题基本抽象为二叉树的遍历。最优解为通过使用位运算(如图2所示，假设9等同于0，g等同于1，那么所有组合为0到3的所有二进制表示)；普通解法为递归。</p>
-<p> <img src="/media/files/2016/02/1.jpg" alt=""></p>
-<pre><code><span class="comment">//java code</span>
-<span class="keyword">public</span> <span class="keyword">static</span> String[] getSimilarVoucher(<span class="keyword">char</span>[] code){
-    Integer len = code.length;
-    Integer similarNum = <span class="number">0</span>;
-    Integer[] indexString = <span class="keyword">new</span> Integer[len];
-
-    <span class="keyword">for</span> (Integer i = <span class="number">0</span>; i&lt; len;i++) {
-        <span class="keyword">if</span> (code[i] == <span class="string">'9'</span> || code[i] == <span class="string">'g'</span>){
-            indexString[similarNum] = i;
-            similarNum++;
-        }
-    }
-
-    Integer n = <span class="number">1</span> &lt;&lt; similarNum;
-    String[] similarSet = <span class="keyword">new</span> String[n];
-
-    <span class="keyword">for</span> ( Integer i = <span class="number">0</span>; i &lt; n; i++) {
-        <span class="keyword">char</span>[] similarCode = code;
-        <span class="keyword">for</span> (Integer j = <span class="number">0</span>; j &lt; similarNum; j++ ){
-            <span class="keyword">if</span> ((i &amp; (<span class="number">1</span> &lt;&lt; j)) == <span class="number">0</span>) {
-                similarCode[indexString[j]] = <span class="string">'9'</span>;
-            }<span class="keyword">else</span> {
-                similarCode[indexString[j]] = <span class="string">'g'</span>;
-            }
-        }
-        similarSet[i] = String.valueOf(similarCode);
-    }
-
-    <span class="keyword">for</span> (Integer i = <span class="number">0</span>; i &lt; similarSet.length; i++){
-        System.out.println(similarSet[i]);
-    }
-    <span class="keyword">return</span> similarSet;
-}
-</code></pre></div><div class="tags"><a href="/tags/算法/">算法</a></div><div class="post-nav"><a href="/2016/02/24/shikong.html" class="pre"><i class="icon-previous">生命的群体效应 -《失控》</i></a><a href="/2015/11/08/Zen-and-the-Art-of-Motorcycle-Maintenance.html" class="next">Zen and the Art of Motorcycle Maintenance<i class="icon-next"></i></a></div><div id="disqus_thread"><script>var disqus_shortname = 'httpworkjlsungithubio';
-var disqus_identifier = '/2016/02/22/code.html';
-var disqus_title = '一道笔试题';
-var disqus_url = 'http://yoursite.com//2016/02/22/code.html';
+<a id="rocket" href="#top" class="show"></a><html><head><meta http-equiv="content-type" content="text/html; charset=utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/><meta content="yes" name="apple-mobile-web-app-capable"/><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/><meta content="telephone=no" name="format-detection"/><meta name="description"/><title>My Wifi, My Life－七夕 | Tom Talk</title><link rel="stylesheet" type="text/css" href="/css/normalize.css"/><link rel="stylesheet" type="text/css" href="/css/pure-min.css"/><link rel="stylesheet" type="text/css" href="/css/grids-responsive-min.css"/><link rel="stylesheet" type="text/css" href="/css/style.css"/><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"/><link rel="alternate" type="application/atom+xml" href="/atom.xml"/></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">My Wifi, My Life－七夕</h1><a id="logo" href="/">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/" class="current"><i class="icon-home"> 首页</i></a><a href="/archives/"><i class="icon-archive"> 归档</i></a><a href="/about/"><i class="icon-about"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post post-page"><h1 class="post-title">My Wifi, My Life－七夕</h1><div class="post-meta">2016-08-09 | </div><span data-disqus-identifier="/2016/08/09/MyWifeMyLife.html" class="disqus-comment-count"></span><div class="post-content"><p>感谢你早起为我煮面，无怨得付出；</p>
+<p>感谢你包容我的缺点，原谅我的缺心眼；</p>
+<p>感谢你支持我的工作，照顾我的生活;</p>
+<p>感谢你给我带来小柚子，给了我温暖的家庭；</p>
+<p>感谢你带给我带来欢乐，带来幸福；</p>
+<p>遇到你肯定是你欠我的，不然我怎会有如此的好运气；</p>
+<p>我爱你、爱柚子、也爱我们朴实、平淡、却也有矛盾的家庭；</p>
+<p>未来的日子，一起创造欢乐；</p>
+<p>未来的日子，一起守护幸福；</p>
+<p><img src="/media/files/2016/08/1.jpg" alt="1"><br><img src="/media/files/2016/08/2.jpg" alt="2"><br><img src="/media/files/2016/08/3.jpeg" alt="3"></p>
+</div><div class="tags"><a href="/tags/Life/">Life</a></div><div class="post-nav"><a href="/2016/05/24/good-to-great-2.html" class="next">《Good-To-Great》-“人与方向”<i class="icon-next"></i></a></div><div id="disqus_thread"><script>var disqus_shortname = 'httpworkjlsungithubio';
+var disqus_identifier = '/2016/08/09/MyWifeMyLife.html';
+var disqus_title = 'My Wifi, My Life－七夕';
+var disqus_url = 'http://yoursite.com//2016/08/09/MyWifeMyLife.html';
 (function() {
   var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
   dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
