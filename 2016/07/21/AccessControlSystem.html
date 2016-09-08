@@ -1,0 +1,207 @@
+<a id="rocket" href="#top" class="show"></a><html><head><meta http-equiv="content-type" content="text/html; charset=utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/><meta content="yes" name="apple-mobile-web-app-capable"/><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/><meta content="telephone=no" name="format-detection"/><meta name="description"/><title>Access-Control-System | Tom Talk</title><link rel="stylesheet" type="text/css" href="/css/normalize.css"/><link rel="stylesheet" type="text/css" href="/css/pure-min.css"/><link rel="stylesheet" type="text/css" href="/css/grids-responsive-min.css"/><link rel="stylesheet" type="text/css" href="/css/style.css"/><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"/><link rel="alternate" type="application/atom+xml" href="/atom.xml"/></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">Access-Control-System</h1><a id="logo" href="/">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/" class="current"><i class="icon-home"> 首页</i></a><a href="/archives/"><i class="icon-archive"> 归档</i></a><a href="/about/"><i class="icon-about"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post post-page"><h1 class="post-title">Access-Control-System</h1><div class="post-meta">2016-07-21 | </div><span data-disqus-identifier="/2016/07/21/AccessControlSystem.html" class="disqus-comment-count"></span><div class="post-content"><p>给企业提供云计算服务，提供基础设施服务，满足基本的功能需求之外，还需要很重要一点是层级的权限控制体系，如果没有权限控制体系，对企业用户来说其实就只有一个root用户,这是远远不能满足企业对数据和资源的管理和各种安全需求的。当今国内外的云服务平台很多，但是在权限控制上做得较为完善的企业并不是很多。国内的话阿里云的 RAM服务、国外的就属AWS的IAM服务。如下为权限控制系统的一些基本原理。以下为个人就wiki上访问控制的一些粗浅的理解。</p>
+<h3 id="1-_基本理论">1. 基本理论</h3><p>要了解访问控制系统，必须首先了解几个基本元素，身份、认证、授权、访问控制、审计。</p>
+<ul>
+<li>identification</li>
+<li>authentication</li>
+<li>authorization</li>
+<li>access approval (a narrow definition)</li>
+<li>audit</li>
+</ul>
+<p>Access control systems provide the essential services of authorization, identification and authentication (I&amp;A), access approval, and accountability.</p>
+<ul>
+<li><p><strong>identification and authentication:</strong> ensure that only legitimate subjects can log on to a system.</p>
+</li>
+<li><p><strong>authorization:</strong> :specifies what a subject can do.</p>
+</li>
+<li><p><strong>access approval:</strong> :grants access during operations, by association of users with the resources that they are allowed to access, based on the <strong>Authorization policy(授权策略)</strong>.</p>
+</li>
+<li><p><strong>audit:</strong> accountability identifies what a subject (or all subjects associated with a user) did</p>
+</li>
+</ul>
+<p><img src="/media/files/2016/07/acl.jpg" alt="xxx"></p>
+<h4 id="1-1_Authorization(授权)">1.1 Authorization(授权)</h4><p>Authorization involves the act of defining access-rights for subjects. An <strong>Authorization policy(授权策略)</strong> specifies the operations are allowed to execute within a system. Most modern operation systems implement authorization policies as permissions that are variations or extensions of three basic types of access.</p>
+<ul>
+<li>Read (R): The subject can<ul>
+<li>Read file contents</li>
+<li>List directory contents</li>
+</ul>
+</li>
+<li>Write (W): The subject can change the contents of a file or directory with the following tasks<ul>
+<li>Add</li>
+<li>Update</li>
+<li>Delete</li>
+<li>Rename</li>
+</ul>
+</li>
+<li>Execute (X): If the file is a program, the subject can cause the program to be run. (In Unix-style systems, the “execute” permission doubles as a “traverse directory” permission when granted for a directory.)</li>
+</ul>
+<p>如下为AWS IAM系统或者Aliyun RAM系统中授权策略的基本描述形势,如下授权策略的意思是允许对队该账户下的所有OSS资源进行只读访问。</p>
+<figure class="highlight clojure"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="collection">&#123;</span><br><span class="line">  <span class="string">"Statement"</span>: <span class="collection">[</span><br><span class="line">    <span class="collection">&#123;</span><br><span class="line">      <span class="string">"Action"</span>: <span class="collection">[  //允许执行的动作：列举、访问对象等操作</span><br><span class="line">        <span class="string">"oss:Get*"</span>,</span><br><span class="line">        <span class="string">"oss:List*"</span></span><br><span class="line">      ]</span>,</span><br><span class="line">      <span class="string">"Effect"</span>: <span class="string">"Allow"</span>,   //授予或者不授予</span><br><span class="line">      <span class="string">"Resource"</span>: <span class="string">"*"</span> //允许访问的资源范围</span><br><span class="line">    &#125;</span></span><br><span class="line">  ]</span>,</span><br><span class="line">  <span class="string">"Version"</span>: <span class="string">"1"</span> //策略版本<span class="list">(系统使用)</span></span><br><span class="line">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>当然这个策略需要attach授予给某个具体的用户才能够使得对应用户拥有该权限。</p>
+<h4 id="1-2_Identification_and_Authentication_(I&amp;A)（身份及验证）">1.2 Identification and Authentication (I&amp;A)（身份及验证）</h4><p>Identification and Authentication is the process of verifying that an identity is bound to the entity that makes an assertion or claim of identity.<br>The I&amp;A process assumes that there was an initial validation of the identity, commonly called identity proofing. Various methods of identity proofing are available, ranging from <strong>in-person validation using government issued identification(真实身份)</strong>, <strong>to anonymous methods that allow the claimant to remain anonymous(虚拟身份)</strong>, but known to the system if they return. The method used for identity proofing and validation should provide an assurance level commensurate with the intended use of the identity within the system(<strong>提供预期用途相称的安全验证水平和方案</strong>). Subsequently, the entity asserts an identity together with an authenticator as a means for validation. The only requirements for the identifier is that it must be unique within its security domain.</p>
+<p>Authenticators are commonly based on at least one of the following four factors.</p>
+<ul>
+<li><p>Something you know, such as a password or a personal identification number (PIN). This assumes that only the owner of the account knows the password or PIN needed to access the account.（<strong>密码</strong>）</p>
+</li>
+<li><p>Something you have, such as a smart card or security token. This assumes that only the owner of the account has the necessary smart card or token needed to unlock the account.(<strong>MFA 多因素认证</strong>)</p>
+</li>
+<li><p>Something you are, such as fingerprint, voice, retina, or iris characteristics.(<strong>人体身份</strong>)</p>
+</li>
+<li><p>Where you are, for example inside or outside a company firewall, or proximity of login location to a personal GPS device.(<strong>其它条件限制</strong>)</p>
+</li>
+</ul>
+<h4 id="1-3_Access_approval(访问控制)">1.3 Access approval(访问控制)</h4><p>Access approval is the function that actually grants or rejects access during operations.</p>
+<p>During access approval, the system compares the <strong>formal representation of the authorization policy</strong> with the <strong>access request</strong>, to determine whether the request shall be granted or rejected. Moreover, the access evaluation can be done online/ongoing.</p>
+<h4 id="1-4_Accountability(审计)">1.4 Accountability(审计)</h4><p>Accountability uses such system components as audit trails (records) and logs, to associate a subject with its actions. The information recorded should be sufficient to map the subject to a controlling user. Audit trails and logs are important for</p>
+<ul>
+<li>Detecting security violations(检查安全回归)</li>
+<li>Re-creating security incidents(重现安全事故)</li>
+</ul>
+<p>If no one is regularly reviewing your logs and they are not maintained in a secure and consistent manner, they may not be admissible as evidence.</p>
+<p>Many systems can generate automated reports, based on certain predefined criteria or thresholds, known as clipping levels. For example, a clipping level may be set to generate a report for the following.</p>
+<ul>
+<li>More than three failed logon attempts in a given period(多次登陆失败)</li>
+<li>Any attempt to use a disabled user account（禁用账户）</li>
+</ul>
+<p>These reports help a system administrator or security administrator to more easily identify possible break-in attempts.</p>
+<h3 id="2_访问控制基本模型">2 访问控制基本模型</h3><p>主流的访问控制包含一下几大类</p>
+<ul>
+<li>DAC(Discretionary Access Control Model):自由访问控制</li>
+<li>MAC(Mandatory Access Control Model):强制访问控制</li>
+<li>RBAC(Role Based Access Control):基于角色的访问控制</li>
+</ul>
+<h4 id="2-1_DAC(Discretionary_Access_Control_Model)">2.1 DAC(Discretionary Access Control Model)</h4><p>Discretionary access control (DAC) is a policy determined by the owner of an object. The owner decides who is allowed to access the object, and what privileges they have.(<strong>基于资源实际拥有者的访问权限控制</strong>)</p>
+<p>Two important concepts in DAC are</p>
+<ul>
+<li><p><strong>File and data ownership</strong>: Every object in the system has an owner. In most DAC systems, each object’s initial owner is the subject that caused it to be created. The access policy for an object is determined by its owner.(此类系统中每个object(资源)都有自己的owner，owener一般来说都是资源的创建者，资源的创建者可以控制资源的访问控制)</p>
+</li>
+<li><p><strong>Access rights and permissions</strong>: These are the controls that an owner can assign to other subjects for specific resources.</p>
+</li>
+</ul>
+<p>Access controls may be discretionary in ACL-based or capability-based access control systems. (In capability-based systems, there is usually no explicit concept of ‘owner’, but the creator of an object has a similar degree of control over its access policy.)</p>
+<p>DAC一般可以通过<strong>ACLs(Access Control Lists)</strong>的方式来进行实现。</p>
+<table>
+<thead>
+<tr>
+<th>User/Group</th>
+<th style="text-align:left">Bucket1</th>
+<th style="text-align:left">Bucket2/User1/</th>
+<th style="text-align:center">Bucket3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tom</td>
+<td style="text-align:left">Get*、Put*</td>
+<td style="text-align:left">Get、Put*</td>
+<td style="text-align:center">Get*、Put*</td>
+</tr>
+<tr>
+<td>cat</td>
+<td style="text-align:left">Get*</td>
+<td style="text-align:left">Get*</td>
+<td style="text-align:center">Get*、Put*</td>
+</tr>
+<tr>
+<td>jerry</td>
+<td style="text-align:left">Get*</td>
+<td style="text-align:left">Put*</td>
+<td style="text-align:center">Get*、Put*</td>
+</tr>
+</tbody>
+</table>
+<p>ACL是最早的一种访问控制机制，它的原理非常简单，每一项资源都有一个列表，这个列表纪录的就是那些用户可以对着项资源执行CURD操作。当系统试图访问这项资源时，会首先检查这个列表中是否有关于当前用户的访问权限，从而确定是否可以执行相应的操作。ACL是一种<strong>面向资源的访问控制模型</strong>，它的机制都是围绕着“资源”展开的。<br>　　由于ACL的简单性，使得它几乎不需要任何基础设施就可以完成访问控制。但同时它的缺点也是很明显的，由于需要维护大量的访问权限列表，ACL在性能上有明显的缺陷。另外，对于拥有大量用户与众多资源的应用，管理访问控制列表本身就变成非常繁重的工作。</p>
+<p>ps:自由访问控制之所以称之为”自由”的原因为：权限的传递较为随意和自由，比如linux下的文件权限控制，文件的拥有者可以非常方便赋予其它任意用户进行读写删的权限。但是某些情况下其实这种自由是非常可怕的，比如说机构中有各种角色，某些用户属于绝密级别、有些用户属于普通用户(扫地阿姨)，一般来说访问控制系统不能够提供任何一种途径使得绝密用户的数据透漏给普通用户；那么下面MAC既为与DAC相对应的访问控制系统。</p>
+<h4 id="2-2_MAC(Mandatory_Access_Control_Model)">2.2 MAC(Mandatory Access Control Model)</h4><p>Mandatory access control refers to allowing access to a resource if and only if rules exist that allow a given user to access the resource. It is difficult to manage, but its use is usually justified when used to protect highly sensitive information. Examples include certain government and military information. Management is often simplified (over what can be required) if the information can be protected using hierarchical access control, or by implementing sensitivity labels. What makes the method “mandatory” is the use of either rules or sensitivity labels.</p>
+<p>(PS:资源上必须显式明确某个用户是否有权限操作这个资源，而且权限的控制一般不是资源的owner可以控制的，所以纯粹的这种访问控制一般很难管理，所以很多简化的实现是给用户一个类似的保密级别，资源一个保密级别，用户的保密级别只有高于资源的保密级别才能够访问)</p>
+<table>
+<thead>
+<tr>
+<th>Subject</th>
+<th style="text-align:left">Classification level</th>
+<th style="text-align:left">Category</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tom</td>
+<td style="text-align:left">Secret</td>
+<td style="text-align:left">Finance</td>
+</tr>
+<tr>
+<td>jerry</td>
+<td style="text-align:left">Secret</td>
+<td style="text-align:left">HR</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th style="text-align:left">Classification level</th>
+<th style="text-align:left">Category</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Finance records</td>
+<td style="text-align:left">Secret</td>
+<td style="text-align:left">Finance</td>
+</tr>
+<tr>
+<td>employ records</td>
+<td style="text-align:left">Secret</td>
+<td style="text-align:left">HR</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Sensitivity labels</li>
+</ul>
+<p>In such a system subjects and objects must have labels assigned to them. A subject’s sensitivity label specifies its level of trust. An object’s sensitivity label specifies the level of trust required for access. In order to access a given object, the subject must have a sensitivity level equal to or higher than the requested object.</p>
+<ul>
+<li>Data import and export</li>
+</ul>
+<p>Controlling the import of information from other systems and export to other systems (including printers) is a critical function of these systems, which must ensure that sensitivity labels are properly maintained and implemented so that sensitive information is appropriately protected at all times.</p>
+<p>Two methods are commonly used for applying mandatory access control.</p>
+<h4 id="2-3_RBAC(Role-based_Access_Model)">2.3 RBAC(Role-based Access Model)</h4><p>Role-based access control (RBAC) is an access policy determined by the system, not by the owner. RBAC is used in commercial applications and also in military systems, where multi-level security requirements may also exist.</p>
+<p><strong>RBAC differs from DAC</strong> in that DAC allows users to control access to their resources. while in RBAC, access is controlled at the system level, outside of the user’s control. Although RBAC is non-discretionary, <strong>it can be distinguished from MAC</strong> primarily in the way permissions are handled. MAC controls read and write permissions based on a user’s clearance level and additional labels.RBAC controls collections of permissions that may include complex operations such as an e-commerce transaction, or may be as simple as read or write. A role in RBAC can be viewed as a set of permissions.<br>Three primary rules are defined for RBAC:</p>
+<p>Role assignment: A subject can execute a transaction only if the subject has selected or been assigned a suitable role.<br>Role authorization: A subject’s active role must be authorized for the subject. With rule 1 above, this rule ensures that users can take on only roles for which they are authorized.<br>Transaction authorization: A subject can execute a transaction only if the transaction is authorized for the subject’s active role. With rules 1 and 2, this rule ensures that users can execute only transactions for which they are authorized.</p>
+<p>Additional constraints may be applied as well, and roles can be combined in a hierarchy where higher-level roles subsume permissions owned by lower-level sub-roles.</p>
+<p>Most IT vendors offer RBAC in one or more products.</p>
+<p>总结:RBAC是把用户按角色进行归类，通过用户的角色来确定用户能否针对某项资源进行某项操作。RBAC相对于ACL最大的优势就是简化了用户与权限的管理，通过对用户进行分类，使得角色与权限关联起来，用户与权限变成了间接的关联。RBAC模型使得访问控制，特别是对用户的授权管理变得较为简单和易于维护，因此有广泛的使用。（但是相对的缺陷就是，如果要是细粒度的控制，比如某个角色下的个别用户需要特别的权限定制，如同加入一些其它角色的小部分权限或去除当前角色的一些权限是，就可能需要新建角色，然后分配新的角色给这个单独的用户，这样以来，如果这种需求越来越多，那么就会慢慢退化为跟ACL一样繁琐了）。</p>
+<h3 id="3-_参考资料">3. 参考资料</h3><ul>
+<li><a href="https://en.wikipedia.org/wiki/Computer_access_control" target="_blank" rel="external">wiki</a></li>
+<li><a href="http://nos.ntease.com/doc/accesscontrolpresentation-130630194314-phpapp01.pdf" target="_blank" rel="external">AccessControlList</a></li>
+<li><a href="http://www.cec-ceda.org.cn/information/book/info_6.htm" target="_blank" rel="external">访问控制</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Role-based_access_control" target="_blank" rel="external">RBAC</a></li>
+</ul>
+</div><div class="tags"></div><div class="post-nav"><a href="/2016/08/09/MyWifeMyLife.html" class="pre"><i class="icon-previous">My Wife, My Life－七夕</i></a><a href="/2016/05/24/good-to-great-2.html" class="next">《Good-To-Great》-“人与方向”<i class="icon-next"></i></a></div><div id="disqus_thread"><script>var disqus_shortname = 'httpworkjlsungithubio';
+var disqus_identifier = '/2016/07/21/AccessControlSystem.html';
+var disqus_title = 'Access-Control-System';
+var disqus_url = 'http://yoursite.com//2016/07/21/AccessControlSystem.html';
+(function() {
+  var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//httpworkjlsungithubio.disqus.com/count.js" async="async"></script></div></div></div></div><div class="pure-u-1-4"><div id="sidebar"><div class="widget"><div id="search"><form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><input type="hidden" name="sitesearch" value="http://yoursite.com"></form></div></div><div class="widget"><div class="widget-title">分类</div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/code/">code</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/读书/">读书</a></li></ul></div><div class="widget"><div class="widget-title">标签</div><div class="tagcloud"><a href="/tags/浪漫/" style="font-size: 15px;">浪漫</a> <a href="/tags/Nginx/" style="font-size: 15px;">Nginx</a> <a href="/tags/性能/" style="font-size: 15px;">性能</a> <a href="/tags/Life/" style="font-size: 15px;">Life</a> <a href="/tags/从优秀到卓越/" style="font-size: 15px;">从优秀到卓越</a> <a href="/tags/阅读/" style="font-size: 15px;">阅读</a> <a href="/tags/GC/" style="font-size: 15px;">GC</a> <a href="/tags/Pragraming-Languages/" style="font-size: 15px;">Pragraming Languages</a> <a href="/tags/HTTP-API/" style="font-size: 15px;">HTTP API</a> <a href="/tags/REST/" style="font-size: 15px;">REST</a> <a href="/tags/HTTP/" style="font-size: 15px;">HTTP</a> <a href="/tags/Murphy-s-law/" style="font-size: 15px;">Murphy's law</a> <a href="/tags/分布式/" style="font-size: 15px;">分布式</a> <a href="/tags/算法/" style="font-size: 15px;">算法</a> <a href="/tags/Tunning/" style="font-size: 15px;">Tunning</a> <a href="/tags/古典/" style="font-size: 15px;">古典</a> <a href="/tags/云存储/" style="font-size: 15px;">云存储</a> <a href="/tags/CDN/" style="font-size: 15px;">CDN</a> <a href="/tags/交流/" style="font-size: 15px;">交流</a> <a href="/tags/云存储、cdn/" style="font-size: 15px;">云存储、cdn</a> <a href="/tags/golang/" style="font-size: 15px;">golang</a> <a href="/tags/runtime/" style="font-size: 15px;">runtime</a> <a href="/tags/performance/" style="font-size: 15px;">performance</a> <a href="/tags/goroutine/" style="font-size: 15px;">goroutine</a> <a href="/tags/storage/" style="font-size: 15px;">storage</a> <a href="/tags/consistency/" style="font-size: 15px;">consistency</a> <a href="/tags/avaliable/" style="font-size: 15px;">avaliable</a> <a href="/tags/nginx/" style="font-size: 15px;">nginx</a></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2016/09/01/tunning-nginx-performance.html">Nginx 性能调优</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/08/09/MyWifeMyLife.html">My Wife, My Life－七夕</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/07/21/AccessControlSystem.html">Access-Control-System</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/05/24/good-to-great-2.html">《Good-To-Great》-“人与方向”</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/05/24/good-to-great.html">《Good To Great》- “窗子与镜子”</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/04/22/ProgrammingLanguages-GarbageCollection.html">Garbage Collection</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/04/11/rest-api.html">REST API与云计算</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/03/11/x-forwarded-for.html">HTTP之X-Forwarded-For</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/03/01/gopherchina2016.html">GopherChina2016</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/02/28/The-Murphy-s-law.html">墨菲定律(The-Murphy's-law)</a></li></ul></div><div class="widget"><div class="widget-title">最近评论</div><script type="text/javascript" src="//httpworkjlsungithubio.disqus.com/recent_comments_widget.js?num_items=5&amp;hide_avatars=1&amp;avatar_size=32&amp;excerpt_length=20&amp;hide_mods=1"></script></div><div class="widget"><div class="widget-title">友情链接</div><ul></ul><a href="http://andremouche.github.io/" title="Shirly-blog" target="_blank">Shirly-blog</a></div></div></div></div><div id="footer">© <a href="/" rel="nofollow">Tom Talk.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></body><script src="/js/jquery.min.js" type="text/javascript"></script>
+<script src="/js/totop.js" type="text/javascript"></script><script src="/js/fancybox.pack.js" type="text/javascript"></script><link rel="stylesheet" href="/css/jquery.fancybox.css" type="text/css"><script>$(document).ready(function() {
+  $('img').each(function() {
+    if ($(this).parent().hasClass('fancybox')) return;
+    if ($(this).hasClass('nofancybox')) return;
+    var alt = this.alt;
+    if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+    $(this).wrap('<a href="' + ($(this).attr('data-src') == null ? this.src : $(this).attr('data-src')) + '" title="' + alt + '" class="fancybox"></a>');
+  });
+  $(this).find('.fancybox').each(function(){
+    $(this).attr('rel', 'article');
+  });
+});</script><script>$(document).ready(function() {
+  $("a[href$='.jpg'],a[href$='.png'],a[href$='.gif']").attr('rel', 'gallery').fancybox({
+   helpers : {
+   title: { type: 'inside'}
+   }
+ });
+});
+</script></html>
