@@ -114,45 +114,47 @@
 <p>ps:自由访问控制之所以称之为”自由”的原因为：权限的传递较为随意和自由，比如linux下的文件权限控制，文件的拥有者可以非常方便赋予其它任意用户进行读写删的权限。但是某些情况下其实这种自由是非常可怕的，比如说机构中有各种角色，某些用户属于绝密级别、有些用户属于普通用户(扫地阿姨)，一般来说访问控制系统不能够提供任何一种途径使得绝密用户的数据透漏给普通用户；那么下面MAC既为与DAC相对应的访问控制系统。</p>
 <h4 id="2-2_MAC(Mandatory_Access_Control_Model)">2.2 MAC(Mandatory Access Control Model)</h4><p>Mandatory access control refers to allowing access to a resource if and only if rules exist that allow a given user to access the resource. It is difficult to manage, but its use is usually justified when used to protect highly sensitive information. Examples include certain government and military information. Management is often simplified (over what can be required) if the information can be protected using hierarchical access control, or by implementing sensitivity labels. What makes the method “mandatory” is the use of either rules or sensitivity labels.</p>
 <p>(PS:资源上必须显式明确某个用户是否有权限操作这个资源，而且权限的控制一般不是资源的owner可以控制的，所以纯粹的这种访问控制一般很难管理，所以很多简化的实现是给用户一个类似的保密级别，资源一个保密级别，用户的保密级别只有高于资源的保密级别才能够访问)</p>
+<p>Subject表：</p>
 <table>
 <thead>
 <tr>
-<th>Subject</th>
-<th style="text-align:left">Classification level</th>
-<th style="text-align:left">Category</th>
+<th style="text-align:center">Subject</th>
+<th style="text-align:center">Classification level</th>
+<th style="text-align:center">Category</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>tom</td>
-<td style="text-align:left">Secret</td>
-<td style="text-align:left">Finance</td>
+<td style="text-align:center">tom</td>
+<td style="text-align:center">Secret</td>
+<td style="text-align:center">Finance</td>
 </tr>
 <tr>
-<td>jerry</td>
-<td style="text-align:left">Secret</td>
-<td style="text-align:left">HR</td>
+<td style="text-align:center">jerry</td>
+<td style="text-align:center">Secret</td>
+<td style="text-align:center">HR</td>
 </tr>
 </tbody>
 </table>
+<p>Object表：</p>
 <table>
 <thead>
 <tr>
-<th>Object</th>
-<th style="text-align:left">Classification level</th>
-<th style="text-align:left">Category</th>
+<th style="text-align:left">Object</th>
+<th style="text-align:center">Classification level</th>
+<th style="text-align:center">Category</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Finance records</td>
-<td style="text-align:left">Secret</td>
-<td style="text-align:left">Finance</td>
+<td style="text-align:left">Finance records</td>
+<td style="text-align:center">Secret</td>
+<td style="text-align:center">Finance</td>
 </tr>
 <tr>
-<td>employ records</td>
-<td style="text-align:left">Secret</td>
-<td style="text-align:left">HR</td>
+<td style="text-align:left">employ records</td>
+<td style="text-align:center">Secret</td>
+<td style="text-align:center">HR</td>
 </tr>
 </tbody>
 </table>
