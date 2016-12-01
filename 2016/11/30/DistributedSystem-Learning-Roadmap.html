@@ -90,8 +90,6 @@
 </li>
 <li><p><strong>Object Storage on CRAQ, High-throughput chain replication for read-mostly workloads.</strong> Jeff Terrace and Michael J. Freedman. 支持强一直的链式复制方法， 支持从多个副本读取数据。</p>
 </li>
-</ol>
-<ol>
 <li><p><strong>Finding a needle in Haystack: Facebook’s photo storage.</strong> Doug Beaver, Sanjeev Kumar, Harry C. Li, Jason Sobel, Peter Vajgel. Facebook分布式Blob存储， 主要用于存储图片。 主要技术特色： 小文件合并成大文件， 小文件元数据放在内存因此读写只需一次IO。</p>
 </li>
 <li><p><strong>Windows Azure Storage: A Highly Available Cloud Storage Service with Strong Consistency.</strong> Brad Calder, Ju Wang, Aaron Ogus, Niranjan Nilakantan, et. 微软的分布式存储平台， 除了支持类S3对象存储，还支持表格、队列等数据模型。 主要技术特点： 采用Stream/Partition两层设计（类似BigTable）；写错（写满）就封存Extent， 使得副本字节一致， 简化了选主和恢复操作； 将S3对象存储、表格、队列、块设备等融入到统一的底层存储架构中。</p>
