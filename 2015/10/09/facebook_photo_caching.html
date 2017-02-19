@@ -1,0 +1,232 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description"><title>Facebook图片服务堆栈浅析 | Tom Talk</title><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/5.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/0.6.2/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/0.6.2/grids-responsive-min.css"><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">Facebook图片服务堆栈浅析</h1><a id="logo" href="/.">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">Facebook图片服务堆栈浅析</h1><div class="post-meta">Oct 9, 2015<script src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js" async></script><span id="busuanzi_container_page_pv"> | <span id="busuanzi_value_page_pv"></span><span> Hits</span></span></div><a data-disqus-identifier="/2015/10/09/facebook_photo_caching.html" href="/2015/10/09/facebook_photo_caching.html#disqus_thread" class="disqus-comment-count"></a><div class="post-content"><p>此文 <a href="http://www.cs.cornell.edu/~qhuang/papers/sosp_fbanalysis.pdf" target="_blank" rel="external">An Analysis of Facebook Photo Caching</a>是facebook发表在OSDI 2010年的文章Finding a needle in Haystack: facebook’s photo storage的后续。 分析facabook图片系统的整个堆栈, 通过trace 1, 000, 000张不同的照片上77,000,000次访问。 总结了访问的traffic pattern, cache access pattern, geolocation of clients and servers等规律, 并探索了照片内容和它被访问模式之间的关系。 以下为仔细阅读此文的一些公司内部分享总结文档。</p>
+<p>目录</p>
+<ol>
+<li>整体框架</li>
+<li>采样方法(略)</li>
+<li>Workload分析</li>
+<li>替换算法优化提升点</li>
+<li>不同地理上的负载特性分析</li>
+<li>Eage cache 协作缓存理论上的优势</li>
+<li>社交网络分析(略)</li>
+<li>大总结</li>
+<li>NOS借鉴点</li>
+</ol>
+<h3 id="1-整体架构"><a href="#1-整体架构" class="headerlink" title="1 整体架构"></a>1 整体架构</h3><p><img src="/media/files/2015/09/facebookcache.jpg" alt="storagearch.jpg"></p>
+<ul>
+<li>browser浏览器缓存</li>
+<li>Edge缓存<ul>
+<li>相当于CDN，包括自建的Facebook Edge节点以及第三方的Akamai节点</li>
+<li>brower中的fetch path指定了请求指向哪个具体的Edge cache节点</li>
+<li>in-memory hash table存索引 + flash 存储数据 </li>
+<li>使用FIFO淘汰算法</li>
+</ul>
+</li>
+<li>Origin缓存：<ul>
+<li>在Edge节点MISS情况下请求发送到Origin层次</li>
+<li>Origin缓存在整个图片系统中是逻辑上统一的一个层次</li>
+<li>Edge节点到Origin的映射是通过Unique photo Id  进行hash 结合hash map的方式进行映射的</li>
+<li>同样采用in-memory hash table存索引 + flash 存储数据 </li>
+<li>使用FIFO淘汰算法</li>
+</ul>
+</li>
+<li>Haystack<ul>
+<li>origin缓存和Haystack缓存是紧密结合的，origin在Miss通常在Haystack里面直接找到</li>
+<li>在对应haystack集群“负载过高”/“系统故障”/“其他因素”等情况下，origin会从local replica获取，如果还是不行，从remote data center获取（灾备节点）</li>
+<li>使用campact blob存储方式（日志式存储），索引放内存，使得一次图片获取操作只有一次磁盘IO</li>
+</ul>
+</li>
+<li>缓存层次的关键动机<ul>
+<li>使用Edge cached的主要目的：节省Edge和Origin Data center 之间的带宽（费用啊费用，成本很关键）</li>
+<li>其他缓存的主要目的：减小底层Haystack存储的压力，主要是I/O。</li>
+</ul>
+</li>
+</ul>
+<p>URL的组成：unique photo identifier +  display dimensions of image  + fetch path；</p>
+<p>fetch path: which specifies where a request that misses at each layer of cache should be directed next:指定在miss情况下这个请求是指向Akamai CDN还是Facebook自身的Edge节点</p>
+<h3 id="2-Methodology-略"><a href="#2-Methodology-略" class="headerlink" title="2 Methodology[略]"></a>2 Methodology[略]</h3><h3 id="3-WorkLoad分析"><a href="#3-WorkLoad分析" class="headerlink" title="3 WorkLoad分析"></a>3 WorkLoad分析</h3><h4 id="3-1-分析使用的workload"><a href="#3-1-分析使用的workload" class="headerlink" title="3.1 分析使用的workload"></a>3.1 分析使用的workload</h4><ul>
+<li>使用70TB数据</li>
+<li>client-initiated requests</li>
+<li>1 month</li>
+<li>77M 请求</li>
+<li>13.2M user</li>
+<li>1.3M unique photo</li>
+</ul>
+<h4 id="3-2-基本统计"><a href="#3-2-基本统计" class="headerlink" title="3.2 基本统计"></a>3.2 基本统计</h4><p><img src="/media/files/2015/10/1.png" alt="1.png"></p>
+<p>分析结果：</p>
+<ul>
+<li>请求分布：65.5% brower serve、20% Edge cache serve、4.6% Origin cache serve、 9.9% Haystack serve</li>
+<li>流量分布：Edge cache 241.6GB、Origin cache 63.4GB、187.2GB从Haystack获取(resize前达到456.5GB)(ps:http缓存是整个体系的，千万别小看用户浏览器的缓存行为)。</li>
+<li>命中率分布：Inside Brower 65.5%、Edge cache 58.0%、Origin cache 31.8% </li>
+<li>出口ip：Edge cache 24个，origin cache 4个。（24个自建CDN大节点，4个Origincache/HayStack集群）</li>
+<li>图片大小分布，小于256K,缩略前47%对象小于32K，缩略后80%对象小于32K。</li>
+</ul>
+<p><img src="/media/media/files/2015/10/2.png" alt="2.png"></p>
+<h4 id="3-3-Popularity-Distribution"><a href="#3-3-Popularity-Distribution" class="headerlink" title="3.3 Popularity Distribution"></a>3.3 Popularity Distribution</h4><p>分析在不同缓存层次下对象的Popularity</p>
+<p><img src="/media/files/2015/10/3.png" alt="3.png"></p>
+<ul>
+<li>上图X轴为请求数的排名，Y轴为请求，体现的就是对应排名的请求的重复数目</li>
+<li>可以看到对象的Popularity 呈现zipf分布，缓存层次越往下，zipf的a(阿尔法)因子不断变小，体现出来就是分布更加稳定，热点越来越不明显。</li>
+</ul>
+<h4 id="3-4-Hit-Ratio"><a href="#3-4-Hit-Ratio" class="headerlink" title="3.4 Hit Ratio"></a>3.4 Hit Ratio</h4><p>分析Popularity 和Hit Ratio的联系。<br><img src="/media/files/2015/10/4.png" alt="4.png"></p>
+<ul>
+<li>图a：在一周内请求在不同缓存层次的被服务的比例</li>
+<li>图b：A-G不同Popularity 的photo在不同缓存层次被服务的比例（Popularity 排名越往后被后面的缓存层次服务的比例不断变大）</li>
+<li>图c<ul>
+<li>A-G不同Popularity 的photo在各个缓存层次中的命中率。</li>
+<li>A B两类的对象在Edge层次和Origin的层次的命中率远远高于Brower </li>
+<li>E G则相反，在Browser层次的命中率远远高于其他两个层次</li>
+<li>在Brower层次B比C的命中率更加低</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-替换算法的优化提升点"><a href="#4-替换算法的优化提升点" class="headerlink" title="4 替换算法的优化提升点"></a>4 替换算法的优化提升点</h3><h4 id="4-1-浏览器缓存"><a href="#4-1-浏览器缓存" class="headerlink" title="4.1 浏览器缓存"></a>4.1 浏览器缓存</h4><p><img src="/media/files/2015/10/5.png" alt="5.png"></p>
+<ul>
+<li>使用一个月中的25%的trace对缓存进行预热，使用剩余的75%的trace进行测试</li>
+<li>Client activity group越大，即用户越活跃，其命中率越高（很明显:用户越活跃访问同一内容的概率越高）</li>
+<li>考虑浏览器在“容量无限”/“容量无限+resize本地化”情况下的理论命中率最大值<ul>
+<li>对于不是很活跃的用户命中率提高的幅度非常小，只是提升2.6%到了41.8%</li>
+</ul>
+</li>
+</ul>
+<h4 id="4-2-Edge-Cache"><a href="#4-2-Edge-Cache" class="headerlink" title="4.2 Edge Cache"></a>4.2 Edge Cache</h4><h5 id="4-2-1-理论命中率最大值"><a href="#4-2-1-理论命中率最大值" class="headerlink" title="4.2.1 理论命中率最大值"></a>4.2.1 理论命中率最大值</h5><p><img src="/media/files/2015/10/6.png" alt="6.png"></p>
+<ul>
+<li>在“容量无限”/(“容量无限+Resize本地化”)情况下，各个Edge节点命中率提升情况测试理论命中率最大值</li>
+</ul>
+<h5 id="4-2-2-不同替换算法影响"><a href="#4-2-2-不同替换算法影响" class="headerlink" title="4.2.2 不同替换算法影响"></a>4.2.2 不同替换算法影响</h5><p><img src="/media/files/2015/10/7.png" alt="7.png"></p>
+<ul>
+<li>FIFO：先进先出</li>
+<li>LRU：Least Recently Used，最近最少使用</li>
+<li>LFU：Least Frequently Used，最不经常使用</li>
+<li>S4LRU：4级LRU缓存，0-3级，（在cache Miss情况下，插入0级队列的头部，在cache Hit的情况下，上移到上一级的头部：即2级上移到3级别头部，3级只能上移到3级别）</li>
+<li>Clairvoyant：千里眼算法，最佳替换算法（理论最佳算法）</li>
+<li>Infinite：（缓存无限大）</li>
+</ul>
+<p>ps:(LRU和LFU的区别。LFU算法是根据在一段时间里数据项被使用的次数选择出最少使用的数据项，即根据使用次数的差异来决定。而LRU是根据使用时间的差异来决定的。)</p>
+<ul>
+<li>选取 San Jose Edge cache进行测试</li>
+<li>San Jose实际命中率在59.2%，算法FIFO</li>
+<li>模拟不同算法情况下的对象命中率<ul>
+<li>FIFO：59.2%</li>
+<li>LFU：+2%</li>
+<li>LRU：+3.6%</li>
+<li>S4LRU：+8.5%（减少20%的下行流量）</li>
+<li>Clairvoyant:77.3%(当前缓存空间情况下的理论最大值，与当前实际差18.1%（44.4%的下行流量）)</li>
+<li>Infinite:84.3%</li>
+</ul>
+</li>
+<li>模拟不同算法情况下的byte命中率<ul>
+<li>S4LRU：+5.3%（在Edge和Origin之间减少10%的带宽）</li>
+<li>ps：当前edge cache的主要作用不是traffic sheltering，而是为了节省带宽</li>
+</ul>
+</li>
+</ul>
+<h5 id="4-2-3-增加缓存容量的影响"><a href="#4-2-3-增加缓存容量的影响" class="headerlink" title="4.2.3 增加缓存容量的影响"></a>4.2.3 增加缓存容量的影响</h5><ul>
+<li>在缓存容量加倍情况下<ul>
+<li>对象命中率<ul>
+<li>FIFO：+5.8%</li>
+<li>LFU：+5.6%</li>
+<li>LRU：+5.7%</li>
+<li>S4LRU：+4.3%</li>
+</ul>
+</li>
+<li>byte命中率<ul>
+<li>FIFO：+4.8%</li>
+<li>LFU：+6.4%</li>
+<li>LRU：+4.8%</li>
+<li>S4LRU：+4.2%</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h5 id="4-2-4-使用不同缓存算法达到当前实际命中需要的缓存空间"><a href="#4-2-4-使用不同缓存算法达到当前实际命中需要的缓存空间" class="headerlink" title="4.2.4 使用不同缓存算法达到当前实际命中需要的缓存空间"></a>4.2.4 使用不同缓存算法达到当前实际命中需要的缓存空间</h5><ul>
+<li>FIFO：   1     *   X</li>
+<li>LFU：    0.8  *   X</li>
+<li>LRU：   0.7   *   X</li>
+<li>S4LRU：0.3  *   X<br>结论：</li>
+<li>对静态内容的缓存提供可两大可行的建议<ul>
+<li>在边缘节点投入精力进行算法调优可以大幅度减少后端的带宽</li>
+<li>可以使用更小的缓存空间达到当前的命中率</li>
+</ul>
+</li>
+</ul>
+<h4 id="4-3-Origin-Cache"><a href="#4-3-Origin-Cache" class="headerlink" title="4.3 Origin Cache"></a>4.3 Origin Cache</h4><p>同样使用edge cache的测试方法进行测试。</p>
+<p><img src="/media/files/2015/10/8.png" alt="8.png"></p>
+<h5 id="4-3-1-替换算法影响"><a href="#4-3-1-替换算法影响" class="headerlink" title="4.3.1 替换算法影响"></a>4.3.1 替换算法影响</h5><ul>
+<li>FIFO：</li>
+<li>LFU： +9.8%</li>
+<li>LRU：+4.7%</li>
+<li>S4LRU：+13.9% （节省Backend Disk-IO operation 20.7%）</li>
+</ul>
+<h5 id="4-3-2-增加一倍缓存容量的影响"><a href="#4-3-2-增加一倍缓存容量的影响" class="headerlink" title="4.3.2 增加一倍缓存容量的影响"></a>4.3.2 增加一倍缓存容量的影响</h5><ul>
+<li>FIFO：+9.5%</li>
+<li>S4LRU：+8.5%(命中率达到54.4%，相比于当前缓存大小和FIFO情况下减少31.9%的后端IO)<h3 id="5-Geographic-Traffic-Distribution"><a href="#5-Geographic-Traffic-Distribution" class="headerlink" title="5 Geographic  Traffic Distribution"></a>5 Geographic  Traffic Distribution</h3></li>
+</ul>
+<h4 id="5-1-Client-To-Eage-Cache-Traffic"><a href="#5-1-Client-To-Eage-Cache-Traffic" class="headerlink" title="5.1 Client To Eage Cache Traffic"></a>5.1 Client To Eage Cache Traffic</h4><p><img src="/media/files/2015/10/9.png" alt="9.png"></p>
+<ul>
+<li>每个城市的请求都被9个不同区域的Edge cache 节点服务(显然跨越东西海岸延时肯定要变大)</li>
+<li>大部分的请求都路由到离自己近的Edge cache节点</li>
+<li>[例外],Atlanta的大部分请求的大头是由D.C.的Eage cache节点服务</li>
+</ul>
+<p>原因：请求的路由策略是结合latency、Edge Cache容量、Edge Cache当前的负载、ISP厂商价格等诸多的因素计算的而综合计算得出的最佳的DNS策略。(FaceBook DNS)</p>
+<h4 id="5-2-Edge-Cache-to-Origin-Cache-Traffic"><a href="#5-2-Edge-Cache-to-Origin-Cache-Traffic" class="headerlink" title="5.2 Edge Cache to Origin Cache Traffic"></a>5.2 Edge Cache to Origin Cache Traffic</h4><p>  Edge cache 到Orgin cache底层存储的路由访问特征。</p>
+<p><img src="/media/files/2015/10/10.png" alt="10.png"></p>
+<ul>
+<li>4个origin cache 节点（4个数据中心接收数据的upload服务）（orgin cache和haystack是部署在一个数据中心的）</li>
+<li>Edge Cache到Origin Cache的路由策略是基于photo id进行hash的</li>
+<li>和Edge cache不同Origin Cache只有全局唯一的一个，和地理分布无关，只跟photo内容相关</li>
+<li>9个 Edge节点回源到4个origin cache的比例基本都是一样的。</li>
+</ul>
+<h4 id="5-3-Cross-Region-Traffic-at-Backend"><a href="#5-3-Cross-Region-Traffic-at-Backend" class="headerlink" title="5.3 Cross-Region Traffic at Backend"></a>5.3 Cross-Region Traffic at Backend</h4><p>Orgin cache 到Haystack底层存储的路由访问特征。</p>
+<p><img src="/media/files/2015/10/11.png" alt="11.png"></p>
+<ul>
+<li>Origin cache Miss的请求大部分请求98%左右都是直接路由到同一本区域（数据中心）内<ul>
+<li>小部分请求会路由到别的区域（数据中心内）</li>
+<li>前端变化的路由策略导致不可避免的会出现一些误差</li>
+<li>本地节点故障offline或者overload的时候会路由到remote节点</li>
+</ul>
+</li>
+</ul>
+<p>Orgin cache 到Haystack底层存储的访问时间分布</p>
+<p><img src="/media/files/2015/10/12.png" alt="12.png"></p>
+<ul>
+<li>大部分请求在50ms左右时间内完成</li>
+<li>100ms和3s出现2个拐点<ul>
+<li>100ms为路由出错情况下跨不同区域机房的延时</li>
+<li>3s对应与在本地副本失败情况下max-timeout(3s)之后到remote节点获取的延时</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-Eage-cache-协作缓存理论上的优势"><a href="#6-Eage-cache-协作缓存理论上的优势" class="headerlink" title="6. Eage cache 协作缓存理论上的优势"></a>6. Eage cache 协作缓存理论上的优势</h3><p><img src="/media/files/2015/10/13.png" alt="13.png"></p>
+<ul>
+<li>把所有的Edge缓存当做一个独立的缓存，进行协作缓存</li>
+<li>协作统一缓存之后各个算法的命中率提升<ul>
+<li>FIFO：+17%</li>
+<li>S4LRU：+16.6%（相比于当前独立缓存的FIFO算法方案，S4LRU方案命中率提升21.9%，减少42%的回源量）</li>
+</ul>
+</li>
+<li>(ps：个人觉得，把Edge缓存之间建立高速专用网络这种方案才靠谱)</li>
+</ul>
+<h3 id="7-社交网络分析"><a href="#7-社交网络分析" class="headerlink" title="7 社交网络分析"></a>7 社交网络分析</h3><p>photo的流行特性，跟图片的age即social-networking metrics 有很大的关联性。</p>
+<p>大结论</p>
+<ul>
+<li>Facebook 图片traffic的整体的分布：65.5% browser cache, 20.0% Edge Cache, 4.6% Origin Cache, and 9.9% Backend storage</li>
+<li>由于负载均衡等策略的影响有相当一部分的请求route到距离较远edge节点</li>
+<li>模拟测试表明在edge和Origin缓存层次使用S4LRU淘汰算法可能非常有益</li>
+<li>photo的流行特性，跟图片的age及social-networking metrics 有很大的关联性</li>
+</ul>
+<p>NOS(Netease Object Storage)借鉴点</p>
+<ul>
+<li>origin cache，减小 disk IO：对于易信这样的独立服务，对小对象跟产品一起合作做一层Origin Cache缓存，能够大量减小 disk IO，减少对NOS及SDFS层次压力，减少不少成本。</li>
+<li>多级缓存：缓存替换算法，使用类似S4LRU算法，或者说类似于多层次IO进一步提高命中率，减小后端I/O压力</li>
+<li>数据说话，精细化运维并指导开发，最大程度减低成本。</li>
+</ul>
+</div><script type="text/javascript" src="/js/share.js?v=0.0.0" async></script><a data-url="https://work-jlsun.github.io//2015/10/09/facebook_photo_caching.html" data-id="cizcl2en1000i32vxp97gf4dn" class="article-share-link">分享到</a><div class="tags"><a href="/tags/云存储/">云存储</a><a href="/tags/CDN/">CDN</a></div><div class="post-nav"><a href="/2015/11/08/Zen-and-the-Art-of-Motorcycle-Maintenance.html" class="pre">Zen and the Art of Motorcycle Maintenance</a><a href="/2015/09/23/youpai_communicate.html" class="next">又拍云交流</a></div><div id="disqus_thread"><script>var disqus_shortname = 'httpworkjlsungithubio';
+var disqus_identifier = '/2015/10/09/facebook_photo_caching.html';
+var disqus_title = 'Facebook图片服务堆栈浅析';
+var disqus_url = 'https://work-jlsun.github.io//2015/10/09/facebook_photo_caching.html';
+(function() {
+  var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//httpworkjlsungithubio.disqus.com/count.js" async></script></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><form action="//www.google.com/search" method="get" accept-charset="utf-8" target="_blank" class="search-form"><input type="text" name="q" maxlength="20" placeholder="Search"/><input type="hidden" name="sitesearch" value="https://work-jlsun.github.io"/></form></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/code/">code</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/tech/">tech</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/读书/">读书</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Murphy-s-law/" style="font-size: 15px;">Murphy's law</a> <a href="/tags/storage/" style="font-size: 15px;">storage</a> <a href="/tags/avaliable/" style="font-size: 15px;">avaliable</a> <a href="/tags/golang/" style="font-size: 15px;">golang</a> <a href="/tags/nginx/" style="font-size: 15px;">nginx</a> <a href="/tags/performance/" style="font-size: 15px;">performance</a> <a href="/tags/goroutine/" style="font-size: 15px;">goroutine</a> <a href="/tags/runtime/" style="font-size: 15px;">runtime</a> <a href="/tags/交流/" style="font-size: 15px;">交流</a> <a href="/tags/云存储、cdn/" style="font-size: 15px;">云存储、cdn</a> <a href="/tags/云存储/" style="font-size: 15px;">云存储</a> <a href="/tags/CDN/" style="font-size: 15px;">CDN</a> <a href="/tags/浪漫/" style="font-size: 15px;">浪漫</a> <a href="/tags/古典/" style="font-size: 15px;">古典</a> <a href="/tags/分布式/" style="font-size: 15px;">分布式</a> <a href="/tags/算法/" style="font-size: 15px;">算法</a> <a href="/tags/consistency/" style="font-size: 15px;">consistency</a> <a href="/tags/HTTP/" style="font-size: 15px;">HTTP</a> <a href="/tags/Nginx/" style="font-size: 15px;">Nginx</a> <a href="/tags/HTTP-API/" style="font-size: 15px;">HTTP API</a> <a href="/tags/REST/" style="font-size: 15px;">REST</a> <a href="/tags/GC/" style="font-size: 15px;">GC</a> <a href="/tags/Pragraming-Languages/" style="font-size: 15px;">Pragraming Languages</a> <a href="/tags/阅读/" style="font-size: 15px;">阅读</a> <a href="/tags/从优秀到卓越/" style="font-size: 15px;">从优秀到卓越</a> <a href="/tags/Life/" style="font-size: 15px;">Life</a> <a href="/tags/Tunning/" style="font-size: 15px;">Tunning</a> <a href="/tags/性能/" style="font-size: 15px;">性能</a> <a href="/tags/S3/" style="font-size: 15px;">S3</a> <a href="/tags/code/" style="font-size: 15px;">code</a> <a href="/tags/架构/" style="font-size: 15px;">架构</a> <a href="/tags/存储/" style="font-size: 15px;">存储</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最新文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2017/02/18/storage-durablity-2.html">分布式存储系统可靠性-系统估算示例</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/01/24/storage-durablity.html">分布式存储系统可靠性-如何估算</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/01/22/uploadsystem.html">网易云对象存储服务发布**“直传加速服务”**</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/12/28/splitDataWithSalt.html">Split Data With Salt</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/12/14/nos-from-0-1.html">“网易云存储服务”从0到1发展之路</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/30/DistributedSystem-Learning-Roadmap.html">Distributed System Learning Plan</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/19/S3-HowTo-Dealwith-listObject.html">S3 HowTo Dealwith ListObject</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/19/MessageQueueInArch.html">构架中的消息队列</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/09/01/tunning-nginx-performance.html">Nginx 性能调优</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/08/09/MyWifeMyLife.html">My Wife, My Life－七夕</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-comment-o"> 最近评论</i></div><script type="text/javascript" src="//httpworkjlsungithubio.disqus.com/recent_comments_widget.js?num_items=5&amp;hide_avatars=1&amp;avatar_size=32&amp;excerpt_length=20&amp;hide_mods=1"></script></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://andremouche.github.io" title="Shirly-Blog" target="_blank">Shirly-Blog</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">© <a href="/." rel="nofollow">Tom Talk.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/2.1.5/jquery.fancybox.pack.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="/css/jquery.fancybox.css?v=0.0.0"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>

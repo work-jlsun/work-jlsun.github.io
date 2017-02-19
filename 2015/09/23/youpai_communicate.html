@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description"><title>又拍云交流 | Tom Talk</title><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/5.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/0.6.2/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/0.6.2/grids-responsive-min.css"><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">又拍云交流</h1><a id="logo" href="/.">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">又拍云交流</h1><div class="post-meta">Sep 23, 2015<script src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js" async></script><span id="busuanzi_container_page_pv"> | <span id="busuanzi_value_page_pv"></span><span> Hits</span></span></div><a data-disqus-identifier="/2015/09/23/youpai_communicate.html" href="/2015/09/23/youpai_communicate.html#disqus_thread" class="disqus-comment-count"></a><div class="post-content"><p>团队邀请<a href="https://www.upyun.com/index.html" target="_blank" rel="external">又拍云</a>团队CTO（黄慧攀）&amp; COO（沈志华） 来公司进行一次交流。主要涉及到CDN、云存储、以及未来的工作方向相关的讨论，以下简单纪录一些point。</p>
+<h3 id="1-存储"><a href="#1-存储" class="headerlink" title="1 存储"></a>1 存储</h3><ul>
+<li>1.1 数据</li>
+</ul>
+<p>又拍云的数据量大概在5个P的样子，跟我们网易云存储差不多在一个规模，我们大概逻辑存储量在1.5P左右的样子，物理存储量在3.5P的样子。ps:CDN是其核心业务，存储并不是。</p>
+<ul>
+<li><p>1.2 技术</p>
+<ul>
+<li><p>存储引擎</p>
+<p>又拍云从2010开始到现在底层存储系统经过几次的技术选型，刚开始是<a href="http://www.phpclasses.org/package/6086-PHP-Store-and-get-data-in-MongoDB-GridFS-like-files.html" target="_blank" rel="external">mongofs</a>,到<a href="http://ceph.com/" target="_blank" rel="external">ceph</a>，以及当前自己的分布式文件系统。当前mongofs基本已经淘汰，而ceph和其自研的存储系统都可能还都在使用，当前是主要启用自研的文件系统，ceph中不再新增加新数据。</p>
+</li>
+</ul>
+</li>
+</ul>
+<pre><code>* EC
+
+又拍当前没有用EC，基本采用三备份方式，在启用灾备份情况下就是6倍分，这主要跟他们自己产品的卖点跟成本上考虑有关。因为存储成本相对于流量成本相对比较小，而且本身接业务的时候会主要偏向于接流量型的业务(😄，主要还是靠CDN赚钱)，而并不是大量冷数据，访问很少的业务。
+
+* 存储架构
+
+一般对象存储会选择将对象元信息和对象数据分别保存到不同的系统里面，对象元信息可以选择存放在关系型数据库，而对象数据存储于底层其他kv存储引擎。而##又拍##选择了将对象元信息和对象一起存放(meta文件)，都存放在存储引擎的方式，距离如下图所示。
+</code></pre><p><img src="/media/files/2015/09/storagearch.jpg" alt="storagearch.jpg"></p>
+<pre><code>这两种方式各有各的优缺点
+统一存储：统一设计考虑数据和元数据高可用，高可靠，分布式策略,相比数据元数据大的小往往是比较小的，所以相比而言元数据会得到非常好的分布特性，元数据不易成为瓶颈。但是在应用灵活性方面相对会比较差。
+
+分离存储：需要分别考虑设计元数据系统和数据系统，（ps：统一使用同一套存储引擎，元数据数据还是还是分离的方法还是另说）,并且一般来说元数据是比较集中的，所以机遇元数据的操作和方案设计相对会比较简单，比如统计、标记删除过期清理等等。
+</code></pre><ul>
+<li><p>1.3 其他</p>
+<p>  对##机房存储容量## 的问题进行了一次讨论，我们云存储团队在2014年由于机房容量的问题做过一次存储机器的整体搬迁（ps：需要做同城物理运输），存储系统架构对副本数据的设计是比较集中的，所以搬迁过程还算比较简单，以副本为单位进行搬迁。但是对运维来说还是存在不少的挑战，因为设计的时候并没有考虑到机房搬迁等运维事务。而跟又拍云交流过程中，我们也找到了另外一种思路。</p>
+<p>  一般来说，就云存储而言，应该会基于当前的存储容量和增长趋势做容量规划，比如机房够用1～2年，那么在机房资源紧张的情况下，启用新的机房，针对几个量比较大的产品，要求使换一个桶，使用另外一个新机房的存储空间（bucket）。</p>
+</li>
+</ul>
+<h3 id="2-CDN"><a href="#2-CDN" class="headerlink" title="2 CDN"></a>2 CDN</h3><p>CDN当前是又拍业务的核心、计算图片处理，视频处理非核心；应该说与七牛云存储是不同的发展方向，七牛是围绕数据做计算，但是，CDN是外包的，其核心是存储＋数据计算。</p>
+<ul>
+<li>2.1 points</li>
+</ul>
+<p>以下为一些关键技术点。</p>
+<ol>
+<li>130多个边缘区域，10多个二级区域，3级就是又拍的存储机房，服务器大概几千台。</li>
+<li>二级节点主要选择的是一些多线(BGP)的资源，因为会牵涉到不同线的用户源站。</li>
+<li>评估选点三级区域节点选择相对比较简单，利用听云等服务商测量服务器ping值等信息，进而选择相对优秀的节点。</li>
+<li>IP库选择，目前使用的是IPIP的付费IP库。</li>
+<li>可用带宽大概子1T。</li>
+<li>三级节点到二级节点的路由是自动选择的。</li>
+<li>上传加速依赖于同一套系统，通过边缘节点进行流式代理。</li>
+<li>在CDN当前这种日趋白热化的竞争状态下，又拍表示还是有一定利润空间的。</li>
+<li>CDN的防攻击，针对CDN的攻击，攻击几个点是比较容易的，但是攻击整个CDN事比较困难的，(ps:CloudFlare CDN技术支持AnyCast协议可以使得CDN攻击流量分散到所有节点而大大提升抗攻击能力）</li>
+<li>又拍CDN团队大概是10多号人，存储团队5个人，阿里云CDN团队30多号人.</li>
+</ol>
+<p>-</p>
+<ul>
+<li>2.2 整体架构</li>
+</ul>
+<p>其实又拍云的架构跟Facebook的图片系统还是比较类似的，中心机房之前其实有一套<a href="http://trafficserver.apache.org/" target="_blank" rel="external">ATS</a>通用缓存，一来是作为缩略图的缓存，另外由于支持多机房策略，Origin会从别的storage机房获取数据，缓存有利于较少跨机房的数据复制(Ps:由于前两层CDN缓存，一般到请求到origin的请求量相对较少，命中率相对比较低了，20%左右)</p>
+<p><img src="/media/files/2015/09/facebookcache.jpg" alt="storagearch.jpg"></p>
+<ul>
+<li>2.3 其他</li>
+</ul>
+<p>CDN技术应该算现在都已经算是比较完善的技术了。所以又拍的技术团队也在思考能不能基于CDN做更多的差异化和创新。正在酝酿基于CDN做分布式区域服务，比如抢红包业务，可以将红包服务分散到各个区域的边缘节点。当然这个服务需要一定的技术支持，当前就这种服务形态也在做技术选型。一种是当前比较火的docker技术，另一种是希望构建语言级别的虚拟机（类似于SAE？）。个人认为docker容器技术对于人家的应用场景相对还是比较重，所以选择后者可能更佳合适。</p>
+</div><script type="text/javascript" src="/js/share.js?v=0.0.0" async></script><a data-url="https://work-jlsun.github.io//2015/09/23/youpai_communicate.html" data-id="cizcl2emz000h32vx226aqbz1" class="article-share-link">分享到</a><div class="tags"><a href="/tags/交流/">交流</a><a href="/tags/云存储、cdn/">云存储、cdn</a></div><div class="post-nav"><a href="/2015/10/09/facebook_photo_caching.html" class="pre">Facebook图片服务堆栈浅析</a><a href="/2015/06/26/go-runtime-1.4.html" class="next">go runtime 1.4 之 内存分配器</a></div><div id="disqus_thread"><script>var disqus_shortname = 'httpworkjlsungithubio';
+var disqus_identifier = '/2015/09/23/youpai_communicate.html';
+var disqus_title = '又拍云交流';
+var disqus_url = 'https://work-jlsun.github.io//2015/09/23/youpai_communicate.html';
+(function() {
+  var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//httpworkjlsungithubio.disqus.com/count.js" async></script></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><form action="//www.google.com/search" method="get" accept-charset="utf-8" target="_blank" class="search-form"><input type="text" name="q" maxlength="20" placeholder="Search"/><input type="hidden" name="sitesearch" value="https://work-jlsun.github.io"/></form></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/code/">code</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/tech/">tech</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/读书/">读书</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Murphy-s-law/" style="font-size: 15px;">Murphy's law</a> <a href="/tags/storage/" style="font-size: 15px;">storage</a> <a href="/tags/avaliable/" style="font-size: 15px;">avaliable</a> <a href="/tags/golang/" style="font-size: 15px;">golang</a> <a href="/tags/nginx/" style="font-size: 15px;">nginx</a> <a href="/tags/performance/" style="font-size: 15px;">performance</a> <a href="/tags/goroutine/" style="font-size: 15px;">goroutine</a> <a href="/tags/runtime/" style="font-size: 15px;">runtime</a> <a href="/tags/交流/" style="font-size: 15px;">交流</a> <a href="/tags/云存储、cdn/" style="font-size: 15px;">云存储、cdn</a> <a href="/tags/云存储/" style="font-size: 15px;">云存储</a> <a href="/tags/CDN/" style="font-size: 15px;">CDN</a> <a href="/tags/浪漫/" style="font-size: 15px;">浪漫</a> <a href="/tags/古典/" style="font-size: 15px;">古典</a> <a href="/tags/分布式/" style="font-size: 15px;">分布式</a> <a href="/tags/算法/" style="font-size: 15px;">算法</a> <a href="/tags/consistency/" style="font-size: 15px;">consistency</a> <a href="/tags/HTTP/" style="font-size: 15px;">HTTP</a> <a href="/tags/Nginx/" style="font-size: 15px;">Nginx</a> <a href="/tags/HTTP-API/" style="font-size: 15px;">HTTP API</a> <a href="/tags/REST/" style="font-size: 15px;">REST</a> <a href="/tags/GC/" style="font-size: 15px;">GC</a> <a href="/tags/Pragraming-Languages/" style="font-size: 15px;">Pragraming Languages</a> <a href="/tags/阅读/" style="font-size: 15px;">阅读</a> <a href="/tags/从优秀到卓越/" style="font-size: 15px;">从优秀到卓越</a> <a href="/tags/Life/" style="font-size: 15px;">Life</a> <a href="/tags/Tunning/" style="font-size: 15px;">Tunning</a> <a href="/tags/性能/" style="font-size: 15px;">性能</a> <a href="/tags/S3/" style="font-size: 15px;">S3</a> <a href="/tags/code/" style="font-size: 15px;">code</a> <a href="/tags/架构/" style="font-size: 15px;">架构</a> <a href="/tags/存储/" style="font-size: 15px;">存储</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最新文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2017/02/18/storage-durablity-2.html">分布式存储系统可靠性-系统估算示例</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/01/24/storage-durablity.html">分布式存储系统可靠性-如何估算</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/01/22/uploadsystem.html">网易云对象存储服务发布**“直传加速服务”**</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/12/28/splitDataWithSalt.html">Split Data With Salt</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/12/14/nos-from-0-1.html">“网易云存储服务”从0到1发展之路</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/30/DistributedSystem-Learning-Roadmap.html">Distributed System Learning Plan</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/19/S3-HowTo-Dealwith-listObject.html">S3 HowTo Dealwith ListObject</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/19/MessageQueueInArch.html">构架中的消息队列</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/09/01/tunning-nginx-performance.html">Nginx 性能调优</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/08/09/MyWifeMyLife.html">My Wife, My Life－七夕</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-comment-o"> 最近评论</i></div><script type="text/javascript" src="//httpworkjlsungithubio.disqus.com/recent_comments_widget.js?num_items=5&amp;hide_avatars=1&amp;avatar_size=32&amp;excerpt_length=20&amp;hide_mods=1"></script></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://andremouche.github.io" title="Shirly-Blog" target="_blank">Shirly-Blog</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">© <a href="/." rel="nofollow">Tom Talk.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/2.1.5/jquery.fancybox.pack.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="/css/jquery.fancybox.css?v=0.0.0"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
