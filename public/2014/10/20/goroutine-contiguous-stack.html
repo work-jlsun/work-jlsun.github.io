@@ -1,99 +1,81 @@
-<a id="rocket" href="#top" class="show"></a><html><head><meta http-equiv="content-type" content="text/html; charset=utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/><meta content="yes" name="apple-mobile-web-app-capable"/><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/><meta content="telephone=no" name="format-detection"/><meta name="description"/><title>goroutine contiguous stack | Tom Talk</title><link rel="stylesheet" type="text/css" href="/css/normalize.css"/><link rel="stylesheet" type="text/css" href="/css/pure-min.css"/><link rel="stylesheet" type="text/css" href="/css/grids-responsive-min.css"/><link rel="stylesheet" type="text/css" href="/css/style.css"/><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"/><link rel="alternate" type="application/atom+xml" href="/atom.xml"/></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">goroutine contiguous stack</h1><a id="logo" href="/">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/" class="current"><i class="icon-home"> 首页</i></a><a href="/archives/"><i class="icon-archive"> 归档</i></a><a href="/about/"><i class="icon-about"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post post-page"><h1 class="post-title">goroutine contiguous stack</h1><div class="post-meta">2014-10-20 | </div><span data-disqus-identifier="/2014/10/20/goroutine-contiguous-stack.html" class="disqus-comment-count"></span><div class="post-content"><p>在我们学习关于golang goroutine的文章时，或多或少很多类似的断言：相比于linux pthread，在 golang中我们可以很轻松的创建100k＋的goroutine，而不用担心其带来的开销，其中一个原因是goroutine初始stack非常小，在当前release的1.3 版本中，一个goroutine初试创建只需要4K 的stack，而linux pthead 则需要2M或者更多的stack空间，那到底是不是这样的？</p>
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description"><title>goroutine contiguous stack | Tom Talk</title><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/5.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/0.6.2/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/0.6.2/grids-responsive-min.css"><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">goroutine contiguous stack</h1><a id="logo" href="/.">Tom Talk</a><p class="description">分享我的实践、思考、积累</p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">goroutine contiguous stack</h1><div class="post-meta">Oct 20, 2014<!--script(src='https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js', async)--><span id="busuanzi_container_page_pv"> | <span id="busuanzi_value_page_pv"></span><span> Hits</span></span></div><a data-thread-key="/2014/10/20/goroutine-contiguous-stack.html" href="/2014/10/20/goroutine-contiguous-stack.html#comments" class="ds-thread-count"></a><br class="clear"><div class="post-ref"><blockquote><p>本文由tom原创，转载请注明原文链接：<a href="https://work-jlsun.github.io//2014/10/20/goroutine-contiguous-stack.html">https://work-jlsun.github.io//2014/10/20/goroutine-contiguous-stack.html</a></p></blockquote></div><div class="post-content"><p>在我们学习关于golang goroutine的文章时，或多或少很多类似的断言：相比于linux pthread，在 golang中我们可以很轻松的创建100k＋的goroutine，而不用担心其带来的开销，其中一个原因是goroutine初始stack非常小，在当前release的1.3 版本中，一个goroutine初试创建只需要4K 的stack，而linux pthead 则需要2M或者更多的stack空间，那到底是不是这样的？</p>
 <p>如下在一个进程中创建100个线程，主进程和线程sleep的方式简单测试下pthread 线程初试创建占用的内存资源。</p>
-<pre><code><span class="function"><span class="keyword">void</span>* <span class="title">func</span><span class="params">(<span class="keyword">void</span>* arg)</span></span>{ 
-    <span class="keyword">while</span> (<span class="literal">true</span>){ 
-         usleep(<span class="number">1000000</span>); 
+<pre><code>void* func(void* arg){ 
+    while (true){ 
+         usleep(1000000); 
     } 
 }
-<span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[])</span> </span>{
-    <span class="keyword">pthread_t</span> tid; 
-    <span class="keyword">int</span> n = <span class="number">10000</span>; 
-    <span class="keyword">while</span> (n != <span class="number">0</span>) { 
-         <span class="keyword">if</span> (pthread_create(&amp;tid, <span class="literal">NULL</span>, func, &amp;n) != <span class="number">0</span> ) {
-             <span class="built_in">printf</span>(<span class="string">"create fail"</span>); 
+int main(int argc, char* argv[]) {
+    pthread_t tid; 
+    int n = 10000; 
+    while (n != 0) { 
+         if (pthread_create(&amp;tid, NULL, func, &amp;n) != 0 ) {
+             printf(&quot;create fail&quot;); 
          } 
-         n = n - <span class="number">1</span>; 
+         n = n - 1; 
     } 
-    <span class="keyword">while</span> (<span class="number">1</span>) { usleep(<span class="number">10000000</span>); } 
+    while (1) { usleep(10000000); } 
  } 
 </code></pre><p>通过ps看到的资源使用情况如下</p>
 <pre><code>USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND 
-<span class="number">12768</span>    <span class="number">21828</span>  <span class="number">4.9</span>  <span class="number">1.0</span> <span class="number">81976776</span> <span class="number">83988</span> pts/<span class="number">3</span>  Sl+  <span class="number">08</span>:<span class="number">08</span>   <span class="number">0</span>:<span class="number">01</span> ./a.out
+12768    21828  4.9  1.0 81976776 83988 pts/3  Sl+  08:08   0:01 ./a.out
 </code></pre><p>可以看到创建10000个线程之后，该程序实际占用的内存（RSS）为83988KB，算下来每个线程所占用的内存空间才8K左右，远远不是很多文章中所说的1M或者时2M or more。</p>
-<h2 id="pthread_线程堆栈">pthread 线程堆栈</h2><p>通过strace分析phtread_create 得到如下结果</p>
-<pre><code>mmap(<span class="literal">NULL</span>, <span class="number">8392704</span>, 
+<h2 id="pthread-线程堆栈"><a href="#pthread-线程堆栈" class="headerlink" title="pthread 线程堆栈"></a>pthread 线程堆栈</h2><p>通过strace分析phtread_create 得到如下结果</p>
+<pre><code>mmap(NULL, 8392704, 
     PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, 
-    -<span class="number">1</span>, <span class="number">0</span>) = <span class="number">0x7fa274760000</span>
-brk(<span class="number">0</span>)                                  = <span class="number">0x1fd2000</span>
-brk(<span class="number">0x1ff3000</span>)                          = <span class="number">0x1ff3000</span>
-mprotect(<span class="number">0x7fa274760000</span>, <span class="number">4096</span>, PROT_NONE) = <span class="number">0</span>
-clone(child_stack=<span class="number">0x7fa274f5ffd0</span>,
+    -1, 0) = 0x7fa274760000
+brk(0)                                  = 0x1fd2000
+brk(0x1ff3000)                          = 0x1ff3000
+mprotect(0x7fa274760000, 4096, PROT_NONE) = 0
+clone(child_stack=0x7fa274f5ffd0,
      flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|
            CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|
            CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID,  
-     parent_tidptr=<span class="number">0x7fa274f609d0</span>, tls=<span class="number">0x7fa274f60700</span>,    
-     child_tidptr=<span class="number">0x7fa274f609d0</span>) = <span class="number">31316</span>
+     parent_tidptr=0x7fa274f609d0, tls=0x7fa274f60700,    
+     child_tidptr=0x7fa274f609d0) = 31316
 </code></pre><p>我们可以看到，在调用pthread_create的时候，首先使用mmap分配了8392704 Byte（8196kB）堆栈空间，但是在创建线程的时候，如果不指定堆栈大小，理应使用系统定义的默认最大空间， 通过ulimit -s 可以看到值为8192kB</p>
-<pre><code>hzsunjianliang<span class="variable">@inspur1</span><span class="symbol">:~/github/golang</span><span class="variable">$ </span>ulimit -s
-<span class="number">8192</span>
+<pre><code>hzsunjianliang@inspur1:~/github/golang$ ulimit -s
+8192
 </code></pre><p>mmap多映射了4k（一页），可以看到在mmap之后又调用mprotect将堆栈尾部空间的权限设置为PROT_NONE即不可读写和执行，所以基本可以判断多mmap的1页内存空间主要是用于内存溢出情况下的检测。最后将mmap返回的堆栈作为clone的一个参数创建一个线程。 通过mmap分配的内存并不会直接映射为实际使用的物理内存空间，只有当实际使用的时候，在发现当前虚拟地址空间没有分配实际无力内存的情况下，会触发操作系统缺页中断从而再分配实际物理内存。</p>
-<h2 id="golang_contiguous_stack_实现">golang  contiguous stack 实现</h2><p>goroutine作为golang的独立调度单元，每个goroutine能够独立运行的重要元素为其独立的栈空间，golang 1.2的实现类似于pthread，分配固定大小的空间，由于是固定的所以即不能太大也不能太小。而Go1.3 引入了 contiguous stack，可以在goroutine初试创建时分配非常小的栈空间（1.3为4k，后续1.5roadmap中说到会减到2k），在使用过程中自动进行增长和收缩。这使得我们可以在golang中创建很多很多的goroutine而不用担心内存耗尽。这激发我们编写各种各样的并发模型而不用太担心其可能对内存照成很大的开销。</p>
-<h2 id="实现原理">实现原理</h2><p>golang在每次执行函数调用的时候，首先，其runtime会检测当前的栈空间是否足够使用，如果不够使用，会触发类似“缺页中断”，Go 的runtime会保存此事函数的上下文环境，然后malloc一块内存，将旧堆栈的内存copy到新的堆栈，并做一些合理的调整。当函数返回的时候，函数会在新的堆栈中继续运行，仿佛整个过程啥事都没发生过。所以理论上来说goroutine可以使用“无限大的堆栈空间”</p>
-<h2 id="实现细节">实现细节</h2><p>Go的运行库中，每个goroutine对应一个结构体G（类似于linux操作系统的中进程控制块），此结构中保存有stackbase 和stackguard用于定义其使用的栈信息，每次函数调用时候都会检测当前函数需要使用的栈空间是否够用，如果不够用就进行扩张。</p>
+<h2 id="golang-contiguous-stack-实现"><a href="#golang-contiguous-stack-实现" class="headerlink" title="golang  contiguous stack 实现"></a>golang  contiguous stack 实现</h2><p>goroutine作为golang的独立调度单元，每个goroutine能够独立运行的重要元素为其独立的栈空间，golang 1.2的实现类似于pthread，分配固定大小的空间，由于是固定的所以即不能太大也不能太小。而Go1.3 引入了 contiguous stack，可以在goroutine初试创建时分配非常小的栈空间（1.3为4k，后续1.5roadmap中说到会减到2k），在使用过程中自动进行增长和收缩。这使得我们可以在golang中创建很多很多的goroutine而不用担心内存耗尽。这激发我们编写各种各样的并发模型而不用太担心其可能对内存照成很大的开销。</p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>golang在每次执行函数调用的时候，首先，其runtime会检测当前的栈空间是否足够使用，如果不够使用，会触发类似“缺页中断”，Go 的runtime会保存此事函数的上下文环境，然后malloc一块内存，将旧堆栈的内存copy到新的堆栈，并做一些合理的调整。当函数返回的时候，函数会在新的堆栈中继续运行，仿佛整个过程啥事都没发生过。所以理论上来说goroutine可以使用“无限大的堆栈空间”</p>
+<h2 id="实现细节"><a href="#实现细节" class="headerlink" title="实现细节"></a>实现细节</h2><p>Go的运行库中，每个goroutine对应一个结构体G（类似于linux操作系统的中进程控制块），此结构中保存有stackbase 和stackguard用于定义其使用的栈信息，每次函数调用时候都会检测当前函数需要使用的栈空间是否够用，如果不够用就进行扩张。</p>
 <p>接下来我们分析golang的汇编代码进行分析</p>
-<pre><code><span class="keyword">package</span> main 
-<span class="keyword">import</span>  <span class="string">"fmt"</span>  
-<span class="function">func <span class="title">main</span><span class="params">()</span></span>{ 
+<pre><code>package main 
+import  &quot;fmt&quot;  
+func main(){ 
     a := 1 
-    strb := <span class="string">"hello "</span> 
+    strb := &quot;hello &quot; 
     a = a + 1 
-    strb += <span class="string">"world"</span> 
+    strb += &quot;world&quot; 
     fmt.Print(a, strb) 
     main()  
 }
 </code></pre><p>go tool 6g -S continuousStack.go | head -8</p>
-<pre><code><span class="string">""</span>.main t=<span class="number">1</span> size=<span class="number">352</span> value=<span class="number">0</span> args=<span class="number">0</span> locals=<span class="number">0xb8</span>
-<span class="number">000000</span> <span class="number">00000</span> (continuousStack.go:<span class="number">5</span>) TEXT         <span class="string">""</span>.main+<span class="number">0</span>(SB),$<span class="number">184</span>-<span class="number">0</span>
-<span class="number">000000</span> <span class="number">00000</span> (continuousStack.go:<span class="number">5</span>) MOVQ    (TLS),CX
-<span class="number">0x0009</span> <span class="number">00009</span> (continuousStack.go:<span class="number">5</span>) LEAQ    -<span class="number">56</span>(SP),AX
-<span class="number">0x000e</span> <span class="number">00014</span> (continuousStack.go:<span class="number">5</span>) CMPQ    AX,(CX)
-<span class="number">0x0011</span> <span class="number">00017</span> (continuousStack.go:<span class="number">5</span>) JHI ,<span class="number">26</span>
-<span class="number">0x0013</span> <span class="number">00019</span> (continuousStack.go:<span class="number">5</span>) CALL,runtime.morestack00_noctxt(SB)
-<span class="number">0x0018</span> <span class="number">00024</span> (continuousStack.go:<span class="number">5</span>) JMP ,<span class="number">0</span>
-<span class="number">0x001a</span> <span class="number">00026</span> (continuousStack.go:<span class="number">5</span>) SUBQ    $<span class="number">184</span>,SP
+<pre><code>&quot;&quot;.main t=1 size=352 value=0 args=0 locals=0xb8
+000000 00000 (continuousStack.go:5) TEXT         &quot;&quot;.main+0(SB),$184-0
+000000 00000 (continuousStack.go:5) MOVQ    (TLS),CX
+0x0009 00009 (continuousStack.go:5) LEAQ    -56(SP),AX
+0x000e 00014 (continuousStack.go:5) CMPQ    AX,(CX)
+0x0011 00017 (continuousStack.go:5) JHI ,26
+0x0013 00019 (continuousStack.go:5) CALL,runtime.morestack00_noctxt(SB)
+0x0018 00024 (continuousStack.go:5) JMP ,0
+0x001a 00026 (continuousStack.go:5) SUBQ    $184,SP
 </code></pre><p>从上面可以看到，在进入main函数之后，首先从TLS中取得第一个字段，也就是g－&gt;stackguard字段，然后将当前SP值减去函数预计将要使用的局部堆栈空间56byte，如果得到的值小于stackguard则表示当前栈空间不够使用，需要调用runtime.morestack分配更大的堆栈空间。</p>
 <p>more：[连续栈][1]</p>
-<h2 id="参考资料">参考资料</h2><ol>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ol>
 <li><a href="https://github.com/tiancaiamao/go-internals/blob/master/ebook/03.5.md" target="_blank" rel="external">https://github.com/tiancaiamao/go-internals/blob/master/ebook/03.5.md</a></li>
 <li><a href="https://docs.google.com/document/d/1wAaf1rYoM4S4gtnPh0zOlGzWtrZFQ5suE8qr2sD8uWQ/pub" target="_blank" rel="external">https://docs.google.com/document/d/1wAaf1rYoM4S4gtnPh0zOlGzWtrZFQ5suE8qr2sD8uWQ/pub</a></li>
 <li><a href="http://stackoverflow.com/questions/6270945/linux-stack-sizes" target="_blank" rel="external">http://stackoverflow.com/questions/6270945/linux-stack-sizes</a></li>
 <li><a href="http://www.unix.com/unix-for-dummies-questions-and-answers/174134-kernel-stack-vs-user-mode-stack.html" target="_blank" rel="external">http://www.unix.com/unix-for-dummies-questions-and-answers/174134-kernel-stack-vs-user-mode-stack.html</a></li>
 </ol>
-</div><div class="tags"><a href="/tags/golang/">golang</a><a href="/tags/performance/">performance</a></div><div class="post-nav"><a href="/2015/06/26/go-runtime-1.4.html" class="pre"><i class="icon-previous">go runtime 1.4 之 内存分配器</i></a><a href="/2014/09/24/goroutine-scheduler.html" class="next">goroutine 调度器<i class="icon-next"></i></a></div><div id="disqus_thread"><script>var disqus_shortname = 'disqus_KlauA7LYJe';
-var disqus_identifier = '/2014/10/20/goroutine-contiguous-stack.html';
-var disqus_title = 'goroutine contiguous stack';
-var disqus_url = 'http://yoursite.com//2014/10/20/goroutine-contiguous-stack.html';
+<hr><p>This article used CC-BY-SA-4.0 license, please follow it.</p></div><script type="text/javascript" src="/js/share.js?v=0.0.0" async></script><a data-url="https://work-jlsun.github.io//2014/10/20/goroutine-contiguous-stack.html" data-id="cj0dqpu58000ckny7lp1nfajk" class="article-share-link">分享到</a><div class="tags"><a href="/tags/golang/">golang</a><a href="/tags/performance/">performance</a></div><div class="post-nav"><a href="/2015/06/26/go-runtime-1.4.html" class="pre">go runtime 1.4 之 内存分配器</a><a href="/2014/09/24/goroutine-scheduler.html" class="next">goroutine 调度器</a></div><div data-thread-key="/2014/10/20/goroutine-contiguous-stack.html" data-title="goroutine contiguous stack" data-url="https://work-jlsun.github.io//2014/10/20/goroutine-contiguous-stack.html" class="ds-share flat"><div class="ds-share-inline"><ul class="ds-share-icons-16"><li data-toggle="ds-share-icons-more"><a href="javascript:void(0);" class="ds-more">分享到：</a></li><li><a href="javascript:void(0);" data-service="weibo" class="ds-weibo">微博</a></li><li><a href="javascript:void(0);" data-service="qzone" class="ds-qzone">QQ空间</a></li><li><a href="javascript:void(0);" data-service="qqt" class="ds-qqt">腾讯微博</a></li><li><a href="javascript:void(0);" data-service="wechat" class="ds-wechat">微信</a></li></ul><div class="ds-share-icons-more"></div></div></div><div data-thread-key="/2014/10/20/goroutine-contiguous-stack.html" data-title="goroutine contiguous stack" data-url="https://work-jlsun.github.io//2014/10/20/goroutine-contiguous-stack.html" data-author-key="1" class="ds-thread"></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><form action="//www.google.com/search" method="get" accept-charset="utf-8" target="_blank" class="search-form"><input type="text" name="q" maxlength="20" placeholder="Search"/><input type="hidden" name="sitesearch" value="https://work-jlsun.github.io"/></form></div><div class="widget"><form action="//www.baidu.com/baidu" method="get" accept-charset="utf-8" target="_blank" class="search-form"><input type="search" name="word" maxlength="20" placeholder="Search"/><input type="hidden" name="si" value="https://work-jlsun.github.io"/><input name="tn" type="hidden" value="bds"/><input name="cl" type="hidden" value="3"/><input name="ct" type="hidden" value="2097152"/><input name="s" type="hidden" value="on"/></form></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/code/">code</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/tech/">tech</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/读书/">读书</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Murphy-s-law/" style="font-size: 15px;">Murphy's law</a> <a href="/tags/golang/" style="font-size: 15px;">golang</a> <a href="/tags/performance/" style="font-size: 15px;">performance</a> <a href="/tags/storage/" style="font-size: 15px;">storage</a> <a href="/tags/consistency/" style="font-size: 15px;">consistency</a> <a href="/tags/avaliable/" style="font-size: 15px;">avaliable</a> <a href="/tags/goroutine/" style="font-size: 15px;">goroutine</a> <a href="/tags/runtime/" style="font-size: 15px;">runtime</a> <a href="/tags/交流/" style="font-size: 15px;">交流</a> <a href="/tags/云存储、cdn/" style="font-size: 15px;">云存储、cdn</a> <a href="/tags/云存储/" style="font-size: 15px;">云存储</a> <a href="/tags/CDN/" style="font-size: 15px;">CDN</a> <a href="/tags/算法/" style="font-size: 15px;">算法</a> <a href="/tags/浪漫/" style="font-size: 15px;">浪漫</a> <a href="/tags/古典/" style="font-size: 15px;">古典</a> <a href="/tags/分布式/" style="font-size: 15px;">分布式</a> <a href="/tags/nginx/" style="font-size: 15px;">nginx</a> <a href="/tags/HTTP/" style="font-size: 15px;">HTTP</a> <a href="/tags/Nginx/" style="font-size: 15px;">Nginx</a> <a href="/tags/HTTP-API/" style="font-size: 15px;">HTTP API</a> <a href="/tags/REST/" style="font-size: 15px;">REST</a> <a href="/tags/GC/" style="font-size: 15px;">GC</a> <a href="/tags/Pragraming-Languages/" style="font-size: 15px;">Pragraming Languages</a> <a href="/tags/阅读/" style="font-size: 15px;">阅读</a> <a href="/tags/从优秀到卓越/" style="font-size: 15px;">从优秀到卓越</a> <a href="/tags/Life/" style="font-size: 15px;">Life</a> <a href="/tags/Tunning/" style="font-size: 15px;">Tunning</a> <a href="/tags/性能/" style="font-size: 15px;">性能</a> <a href="/tags/S3/" style="font-size: 15px;">S3</a> <a href="/tags/code/" style="font-size: 15px;">code</a> <a href="/tags/架构/" style="font-size: 15px;">架构</a> <a href="/tags/存储/" style="font-size: 15px;">存储</a> <a href="/tags/分布式、存储/" style="font-size: 15px;">分布式、存储</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最新文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2017/03/17/storage-physical-topoloy.html">大规模存储物理架构</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/02/19/storage-durablity-design-pattern.html">分布式存储系统可靠性-设计模式</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/02/18/storage-durablity-2.html">分布式存储系统可靠性-系统估算示例</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/01/24/storage-durablity.html">分布式存储系统可靠性-如何估算</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/01/22/uploadsystem.html">网易云对象存储服务发布**“直传加速服务”**</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/12/28/splitDataWithSalt.html">Split Data With Salt</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/12/14/nos-from-0-1.html">“网易云存储服务”从0到1发展之路</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/30/DistributedSystem-Learning-Roadmap.html">Distributed System Learning Plan</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/19/MessageQueueInArch.html">构架中的消息队列</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/11/19/S3-HowTo-Dealwith-listObject.html">S3 HowTo Dealwith ListObject</a></li></ul></div><div class="widget"><div class="comments-title"><i class="fa fa-comment-o"> 最近评论</i></div><div data-num-items="5" data-show-avatars="0" data-show-time="1" data-show-admin="0" data-excerpt-length="32" data-show-title="1" class="ds-recent-comments"></div></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://andremouche.github.io" title="Shirly-Blog" target="_blank">Shirly-Blog</a><ul></ul><a href="http://michael-j.net/" title="michael-j" target="_blank">michael-j</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">© <a href="/." rel="nofollow">Tom Talk.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/2.1.5/jquery.fancybox.pack.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="/css/jquery.fancybox.css?v=0.0.0"><script>var duoshuoQuery = {short_name:'work-jlsun'};
 (function() {
-  var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-})();</script><script id="dsq-count-scr" src="//disqus_KlauA7LYJe.disqus.com/count.js" async="async"></script></div></div></div></div><div class="pure-u-1-4"><div id="sidebar"><div class="widget"><div id="search"><form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><input type="hidden" name="sitesearch" value="http://yoursite.com"></form></div></div><div class="widget"><div class="widget-title">分类</div></div><div class="widget"><div class="widget-title">标签</div><div class="tagcloud"><a href="/tags/云存储、cdn/" style="font-size: 15px;">云存储、cdn</a> <a href="/tags/golang/" style="font-size: 15px;">golang</a> <a href="/tags/performance/" style="font-size: 15px;">performance</a> <a href="/tags/云存储/" style="font-size: 15px;">云存储</a> <a href="/tags/CDN/" style="font-size: 15px;">CDN</a> <a href="/tags/交流/" style="font-size: 15px;">交流</a> <a href="/tags/nginx/" style="font-size: 15px;">nginx</a> <a href="/tags/runtime/" style="font-size: 15px;">runtime</a> <a href="/tags/goroutine/" style="font-size: 15px;">goroutine</a> <a href="/tags/storage/" style="font-size: 15px;">storage</a> <a href="/tags/consistency/" style="font-size: 15px;">consistency</a> <a href="/tags/avaliable/" style="font-size: 15px;">avaliable</a></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2015/10/09/facebook_photo_caching.html">Facebook图片服务堆栈浅析</a></li><li class="post-list-item"><a class="post-list-link" href="/2015/09/23/youpai_communicate.html">又拍云交流</a></li><li class="post-list-item"><a class="post-list-link" href="/2015/06/26/go-runtime-1.4.html">go runtime 1.4 之 内存分配器</a></li><li class="post-list-item"><a class="post-list-link" href="/2014/10/20/goroutine-contiguous-stack.html">goroutine contiguous stack</a></li><li class="post-list-item"><a class="post-list-link" href="/2014/09/24/goroutine-scheduler.html">goroutine 调度器</a></li><li class="post-list-item"><a class="post-list-link" href="/2014/09/02/stroage_consistency_replicate.html"> 存储一致性之复制</a></li><li class="post-list-item"><a class="post-list-link" href="/2014/08/12/stroage_consistency_avaliable_post2.html"> 存储系统一致性与可用性（二）</a></li><li class="post-list-item"><a class="post-list-link" href="/2014/07/26/stroage_consistency_avaliable_post1.html"> 存储系统一致性与可用性</a></li><li class="post-list-item"><a class="post-list-link" href="/2014/01/20/golang-vs-nginx-test.html">Nginx And Go Http 并发性能</a></li></ul></div><div class="widget"><div class="widget-title">最近评论</div><script type="text/javascript" src="//disqus_KlauA7LYJe.disqus.com/recent_comments_widget.js?num_items=5&amp;hide_avatars=1&amp;avatar_size=32&amp;excerpt_length=20&amp;hide_mods=1"></script></div><div class="widget"><div class="widget-title">友情链接</div><ul></ul><a href="http://andremouche.github.io/" title="Shirly-blog" target="_blank">Shirly-blog</a></div></div></div></div><div id="footer">© <a href="/" rel="nofollow">Tom Talk.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></body><script src="/js/jquery.min.js" type="text/javascript"></script>
-<script src="/js/totop.js" type="text/javascript"></script><script src="/js/fancybox.pack.js" type="text/javascript"></script><link rel="stylesheet" href="/css/jquery.fancybox.css" type="text/css"><script>$(document).ready(function() {
-  $('img').each(function() {
-    if ($(this).parent().hasClass('fancybox')) return;
-    if ($(this).hasClass('nofancybox')) return;
-    var alt = this.alt;
-    if (alt) $(this).after('<span class="caption">' + alt + '</span>');
-    $(this).wrap('<a href="' + ($(this).attr('data-src') == null ? this.src : $(this).attr('data-src')) + '" title="' + alt + '" class="fancybox"></a>');
-  });
-  $(this).find('.fancybox').each(function(){
-    $(this).attr('rel', 'article');
-  });
-});</script><script>$(document).ready(function() {
-  $("a[href$='.jpg'],a[href$='.png'],a[href$='.gif']").attr('rel', 'gallery').fancybox({
-   helpers : {
-   title: { type: 'inside'}
-   }
- });
-});
-</script></html>
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0]
+        || document.getElementsByTagName('body')[0]).appendChild(ds);
+})();
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
