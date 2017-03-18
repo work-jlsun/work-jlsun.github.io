@@ -7,12 +7,12 @@ title: Tom Talk
 subtitle: 分享我的实践、思考、积累
 description:
 author: tom
-language:
+language: zh-CN
 timezone:
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
-url: http://yoursite.com
+url: https://work-jlsun.github.io
 root: /
 #permalink: :year/:month/:day/:title/
 permalink: /:year/:month/:day/:title.html
@@ -75,9 +75,9 @@ deploy:
   branch: master
 
 fancybox: true
-#duoshuo: duoshuo_shortname
+#duoshuo: workjlsunduoshuo
 #disqus: disqus_shortname
-disqus: httpworkjlsungithubio
+#disqus: httpworkjlsungithubio
 google_search: true
 #baidu_search: #baidu_search
 #swiftype: swiftype_key
