@@ -7,7 +7,7 @@ tags:
     - avaliable
 ---
 
-[1]: http://www.ibm.com/developerworks/library/l-completely-fair-scheduler/
+[1]: http://book.mixu.net/distsys/index.html
 [2]: http://book.mixu.net/distsys/replication.html
 [3]: https://www.google.com/search?q=understanding+replication+in+databases+and+distributed+systems
 [4]: http://book.mixu.net/distsys/abstractions.html

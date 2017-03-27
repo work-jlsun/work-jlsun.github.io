@@ -7,12 +7,12 @@ title: Tom Talk
 subtitle: 分享我的实践、思考、积累
 description:
 author: tom
-language:
+language: zh-CN
 timezone:
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
-url: http://yoursite.com
+url: https://work-jlsun.github.io
 root: /
 #permalink: :year/:month/:day/:title/
 permalink: /:year/:month/:day/:title.html
@@ -70,14 +70,14 @@ theme: maupassant
 # Deployment
 ## Docs: http://hexo.io/docs/deployment.html
 deploy:
-  type:github
-  repository:git@github.com:work-jlsun/work-jlsun.github.io.git
-  branch:master
+  type: git
+  repository: https://github.com/work-jlsun/work-jlsun.github.io.git
+  branch: master
 
 fancybox: true
-#duoshuo: duoshuo_shortname
+#duoshuo: workjlsunduoshuo
 #disqus: disqus_shortname
-disqus: disqus_KlauA7LYJe
+#disqus: httpworkjlsungithubio
 google_search: true
 #baidu_search: #baidu_search
 #swiftype: swiftype_key
