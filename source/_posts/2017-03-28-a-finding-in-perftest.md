@@ -1,4 +1,4 @@
-title: a_finding_in_perftest
+title: 数据存储中Zipf分布
 date: 2017-03-28 08:07:30
 tags: 存储
 ---
@@ -9,7 +9,9 @@ tags: 存储
 
 纵然是花了很多时间和精力去测试分析，但是某些测试结果具有一定误导性，包含多变量的系统中从外部整体去测试其实很难发现真正原因，走了一些弯路。
 
-所以最后通过一定手段对系统中的一些不确定性的环节进行简化确定，真相才慢慢浮出水面。
+所以最后小伙伴通过一定手段对系统中的一些不确定性的环节进行简化确定，真相才慢慢浮出水面。
+
+以下整理分享。
 
 ### 性能说明
 
@@ -32,7 +34,49 @@ tags: 存储
 
 ### zipf分布
 
+从单节点fdatasync的响应时间分布看,是一个典型的[zipf分布](https://zh.wikipedia.org/zh-cn/齊夫定律),大部分请求响应时间较小，而小部分请求响应时间特别大。
+
+所以使用程序拟合了这样类似的分布，并且通过模拟的方式验证了了一个结果
+
+* 从单纯三副本fdatasync来说，并发写三副本的平均响应值差不多为单次fdatasync的2倍左右
+* 多数派协议中，比如三副本的系统中，并发写入F／2 +1 = 2 个副本成功情况下 的响应时间比单词fdatasync的平均响应时间好要小。 
+	
+*拟合程序*
+	
+	package main
+	
+	import (
+	    "fmt"
+	    "math/rand"
+	    "sort"
+	    "time"
+	)
+	
+	func main() {
+	    r := rand.New(rand.NewSource(int64(time.Now().Second())))
+	    zipf := rand.NewZipf(r, 2.7, 25, 300)
+	
+	    data := make([]int, 0)
+	
+	    N := 20
+	    for i := 0; i != N; i++ {
+	        item  :=  int(zipf.Uint64() + 30)
+	        data = append(data, item)
+	    }
+	    sort.Ints(data)
+	    fmt.Printf("%+v", data)
+	}
+
+程序拟合出的曲线如下：
+
+![](http://tompublic.nos-eastchina1.126.net/zipf-simu.png)
+
+三副本提交和两副本quorum情况下的平均提交时间与分布曲线。
+
+![](http://tompublic.nos-eastchina1.126.net/zipf_avg_simu.png)
+
+相关程序详见
 
 ### 结论
 
-任何看似奇怪的问题后面有可能隐藏着不为人知的更深层次的原因，执着的专研分析精神。
+任何看似奇怪的问题后面有可能隐藏着不为人知的更深层次的原因，执着的专研分析精神,所谓。
