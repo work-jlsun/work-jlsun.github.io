@@ -73,7 +73,7 @@ tags: 存储
 
 ![](http://tompublic.nos-eastchina1.126.net/zipf-simu.png)
 
-乳腺癌三副本提交和两副本quorum情况下的平均提交时间及分布曲线。(PS:实线为总体平均值与百分比分布无关，图例为展示方面，放在一块儿)
+如下为三副本提交和两副本quorum情况下的平均提交时间及分布曲线。(PS:实线为总体平均值与百分比分布无关，图例为展示方面，放在一块儿)
 
 ![](http://tompublic.nos-eastchina1.126.net/zipf_avg_simu.png)
 
