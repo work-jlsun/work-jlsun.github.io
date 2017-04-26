@@ -1,4 +1,4 @@
-title: Copyset Replication
+title: 副本放置&Copyset Replication
 date: 2017-04-18 08:44:46
 tags: 分布式、存储、可靠性
 ---
@@ -13,7 +13,7 @@ tags: 分布式、存储、可靠性
 
 其实在业界也已经有团队在这方面有过实践和经营总结。[《Copysets: Reducing the Frequency of Data Loss in Cloud Storage》](http://web.stanford.edu/~cidon/materials/CR.pdf)，这篇paper是斯坦福大学的学生在facebook HDFS集群上作实验，为了有效降低数据丢失概率，数据放置算法，从原来的Random Replicaiton更改为copyset Replication 算法，实验结果说明可以将FaceBook HDFS集群1%节点故障时的数据丢失概率从22.8%降低道0.78%
 
-* Motivation: 降低数据丢失概率* Innovation: 减少copyset数量可以降低数据丢失概率* Implementation: copyset Replication* Evaluation: 在Facebook HDFS集群1%节点故障时，22.8% to 0.78%以下总结分析3种较为典型的副本分布策略，即<u> Random Replication</u>、<u>Randon Relication With Failure Domain</u>、<u>CopySet Replication</u>,并简单分析这些策略情况下的数据丢失概率。
+* Motivation: 降低数据丢失概率* Innovation: 减少copyset数量可以降低数据丢失概率* Implementation: copyset Replication* Evaluation: 在Facebook HDFS集群1%节点故障时，22.8% to 0.78%以下总结分析3种较为典型的副本分布策略，即<u> Random Replication</u>、<u>Randon Relication With Failure Domain</u>、<u>CopySet Replication</u>,并简单分析这些策略情况下的数据丢失概率。
 ### 1 Random Replication
 
 
@@ -48,7 +48,7 @@ tags: 分布式、存储、可靠性
 
 当然并不是说放置方式越少越好，最小的方式直接组织磁盘为RAID 0 mirror 方式，但是这种情况下数据恢复时间较长，从而会进一步加大数据丢失概率。
 
-这里先不讨论，恢复时间和数据分散 在什么样子的搭配情况下会得到最有的情况。先探讨在固定恢复时间情况下，如何有效控制数据打散程度，得到最好的可靠性。
+这里先不讨论，恢复时间和数据分散 在什么样子的搭配情况下会得到最优的情况。只探讨在固定恢复时间情况下，如何有效控制数据打散程度，得到最好的可靠性。
 
 ![](http://tompublic.nos-eastchina1.126.net/copyset3.jpg)
 
@@ -61,14 +61,17 @@ scatter width 越大，参与进行数据恢复的节点越多，恢复速度越
 
 scatter width 确定情况下，如何副本放置算法如何确保磁盘的scatter width？
 
-接下来就是轮到CopySet Replication 算法出场了。其实算法原理很节点，看下面两张图就成，算法根据系统节点数，和副本数量，进行多个轮次的计算，每一轮次把所有节点按照副本书划分为 N／R 个copyset。算法执行scatter width次，每次确保其中的copyset 不与当前和之前所有伦次中已经产生的copyset相同，最后数据写入的时候，选择一个copyset 写入即可。
+接下来就是轮到CopySet Replication 算法出场了。
 
+其实算法原理很节点，看下下面这张图就成，算法根据系统节点数，和副本数量，进行多个轮次的计算，每一轮次把所有节点按照副本数划分为 N／R 个copyset。每次确保其中的copyset 不与当前和之前所有轮次中已经产生的copyset相同，最后数据写入的时候，选择一个copyset 写入即可。 由于每个排列会吧S(Scatter Width)  增加R-1,所以
+算法执行P = S/（R-1） 次， K(CopySet数量) = P * (N/R) = S/(R-1)* (N/R)
 ![](http://tompublic.nos-eastchina1.126.net/copyset1.jpg)
 
 ![](http://tompublic.nos-eastchina1.126.net/copyset2.jpg)
 
+显然相比前两种策略，CopySet Replication在保障恢复时间的基础上能够得到最佳的数据分布策略。
 
-
+另外在随机放置情况下，其实如果使用小文件合并成大文件的存储策略，可以通过控制大文件的大小，从而控制每个磁盘上大文件的数量，比如100G一个文件，8T盘上的最大文件存储数量也就是8T/100G = 80个文件，显然也就是能够很好的控制一个数据盘的数据打散程度，但是相对而言CopySet Replication 更多的是一种较为通用的算法，而这种算法更多的是适用于特定构架的分布式存储系统，即小文件合并成大文件。
 
 ### 4 参考文献
 
