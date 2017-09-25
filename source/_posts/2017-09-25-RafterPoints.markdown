@@ -27,7 +27,7 @@ Raft协议约定，Candidate在使用新的Term进行选举的时候，Candidate
 
 并且有一个安全截断机制：
 
-1. Follower 在接收到logEntry的时候，如果发现发送者节点当前的Term大于Follower当前的Term；并且发现相同序号的(相同SN)LogEntry在Follower上存在，未Commit，并且LogEntry Term 不一致，那么Follower直接截断从[SN~文件末尾)的所有内容，然后将接收到的LogEntryAppend到截断后的文件末尾。 
+1. Follower 在接收到logEntry的时候，如果发现发送者节点当前的Term大于等于Follower当前的Term；并且发现相同序号的(相同SN)LogEntry在Follower上存在，未Commit，并且LogEntry Term 不一致，那么Follower直接截断从[SN~文件末尾)的所有内容，然后将接收到的LogEntryAppend到截断后的文件末尾。 
 
 
 在以上条件下，Raft论文列举了一个Corner Case 违反一致性协议，如图所示
@@ -47,8 +47,6 @@ Raft协议约定，Candidate在使用新的Term进行选举的时候，Candidate
 2. **前一轮Term未Commit的LogEntry的Commit依赖于高轮Term LogEntry的Commit**
 
 如图所示 (c) 状态 Term2的LogEntry（黄色） 只有在 （e）状态 Term4 的LogEntry（红色）被commit才能够提交。
-
-**Old Entry除了会提交还可能会截断**，截断的条件比较单一，Follower在接收到一个已经存在的SN(Serial Number)的未commit的LogEntry（也就是说上图从状态(c)进入到状态(d)），但是Epoch比接收到的相同SN的LogEntry小，那么截断后续未提交的LogEntry。
 
 
 > 提交NO-OP LogEntry 提交系统可用性
@@ -107,7 +105,7 @@ Raft协议约定，Candidate在使用新的Term进行选举的时候，Candidate
 
 回到问题的第一大核心要点：**Safety**，membership 变更必须保持raft协议的约束：同一时间(同一个Term)只能存在一个有效的Leader。
 
-> 为什么不能直接变更多个节点，直接从Old变为New有问题? for example change from 3 Node to 5 Node？
+> <一>：为什么不能直接变更多个节点，直接从Old变为New有问题? for example change from 3 Node to 5 Node？
 
 ![multiLeaderInMemberChange](http://tom.nos-eastchina1.126.net/multiLeaderInMemberChange.jpg)
 
@@ -120,94 +118,61 @@ Raft协议约定，Candidate在使用新的Term进行选举的时候，Candidate
 ![multiLeaderInMemberChange](http://tom.nos-eastchina1.126.net/singleMemberChange.jpg)
 
 
-> 如何实现Single membership change
+> <二>: 如何实现Single membership change
 
-以下提几个关键点：
+论文中以下提几个关键点：
 
-1: 由于Single方式无论如何 C<sup><sub>old</sub></sup> 和 C<sup><sub>New</sub></sup> 都会相交，所以raft采用了直接提交一个特殊的replicated LogEntry的方式来进行 single 集群关系变更。
+1. 由于Single方式无论如何 C<sup><sub>old</sub></sup> 和 C<sup><sub>New</sub></sup> 都会相交，所以raft采用了直接提交一个特殊的replicated LogEntry的方式来进行 single 集群关系变更。
 
+2. 跟普通的 LogEntry提交的不同点,configuration LogEntry 只需要commit就生效，只需要append 到Log中即可。(PS: 原文 "The New configuration takes effect on  each server as soon as it is added to the server's log")
 
-2: 跟普通的 LogEntry提交的不同点,configuration LogEntry 只需要持久化到server的log就生效，不用等待这个Entry提交。(PS: 原文 "The New configuration takes effect on  each server as soon as it is added to the server's log")
-
-
-3: 后一轮 MemberShip Change 提交必须在前一轮 MemberShip Change Commit之后进行，以避免出现多个Leader的问题。
- 
-接下来我们来看通过这三点如何能够保证Safty。
- 
- * configuration LogEntry 发送到了server多数派（Cnew 的多数派）
-
- 这种情况下，多数派中肯定会产生一个Leader（当前Leader抑或是由于重启产生的新的Leader）将 configuration LogEntry 提交。（以下为与普通2.1 Old Term LogEntry不太一样，如下所示） （**PS：这里是不正确的** 有一宗case说明）
- ![](http://tom.nos-eastchina1.126.net/configureMarjorRecieved.jpg)
+3. 后一轮 MemberShip Change 的开始必须在前一轮 MemberShip Change Commit之后进行，以避免出现多个Leader的问题
  
 
- 除了以上描述偶数节点新增节点的情况，接下来的5 种case情况都在下图中举例说明
- 
- (a). 加节点(奇数变偶数）
- 
- (b). 减节点(偶数变奇数&Leader在Cnew)
- 
- (c). 减节点(奇数变偶数&Leader在Cnew)
- 
- (d). 减节点(偶数变奇数&Leader不在Cnew)
- 
- (e). 减节点(奇数变偶数&Leader不在Cnew)
- 
- ![CaseOfCnewReceived](http://tom.nos-eastchina1.126.net/CaseOfCnewReceived.jpg)
+![](http://tom.nos-eastchina1.126.net/single-membership-error.jpg)
 
-  
- 在所有上述情况下，发现有前一轮 Configuration请求未完成，那么按照上诉3的要求，必须等待前一轮 Configuration请求 commit才处理下一轮 Configuration。所以是的“同一个Term出现2个有限leader”得以保障。
- 
- (疑问：configuration LogEntry 是否可以和 普通LogEntry在同一个Baching里头批量发送和提交？)
- (疑问：为什么不需要生效，就可以启用集群关系？why，later)
- 
- 
-* configuration LogEntry 没有发送到多数派（Cnew的多数派）
+* 关注点1 
 
-这种情况下，也就是说Cnew 并未生效。新一个节点被选择为Leader，接下来有可能出下2种情况
-
-a. 有可能被截断取消，即未包含configuration LogEntry的节点竞选为Leader。
-b. 重新被提交，即包含configuration LogEntry的节点竞选为Leader，这个接下来的流程跟上述《configuration LogEntry 发送到了server多数派》就一样了，没有必要多展开。
-
-其实 a 截断也没有太多要展开的，回退到Cold 继续运行。
-
-a. 在新增节点情况下，当前Leader是Cnew集群成员, 这个情况下，系统回到 Cold状态，接下来Cold情况下如有成功的提交请求，会导致configuration LogEntry不再有机会提交成功（同一个sn上已经有请求提交），拥有此configuration LogEntry 的节点想加入集群，必然要截断。（PS：当然Cold 接下来还可能会遇到configuration LogEntry 请求，这种情况下新老configuration  logEntry 请求 也存在一个 majority 交集，使得只有一个能够成功）
-
-
-接下来2种case是类似的分析方法，都能够确保在一个term里头出现2个有效leader
-
-b. 在减去节点的情况下，当前Leader节点是Cnew集群成员。
-
-c. 在减去节点的情况下，当前Leader节点非Cnew集群成员。
+如图所示，如在前一轮membership configure Change 未完成之前，又进行下一次membership change会导致问题，所以**外部系统需要确保不会在第一次Configuration为成功情况下，发起另外一个不同的Configuration请求。**(
+PS：由于增加副本、节点宕机丢失节点进行数据恢复的情况都是由外部触发进行的，只要外部节点能够确保在前一轮未完成之前发起新一轮请求，即可保障。)
 
 
 
->  2个 奇怪的节点
+* 关注点2
+
+跟其他客户端的请求不一样的，Single MemberShip Change LogEntry只需要Append持久化到Log（而不需要commit）就可以应用。
+
+**一方面是可用性方面的考虑**，如下所示：Leader S1 接收到集群变更请求将集群状态从（S1、S2、S3、S4）变更为 （S2、S3、S4）；提交到所有节点之后commit之后，返回客户端集群状态变更完成(如下状态a)，S1退出(如下状态b）;由于Basic Raft 并不需要commit消息实施传递到其他S1、S2、S3节点，S1退出之后，S1、S2、S3 由于没有接收到Leader S1 的心跳，导致进行选举，但是不幸的是S4故障退出。假设这个时候S2、S3由于 Single MemberShip Change LogEntry 没有Commit 还是以（S1、S2、S3、S4）作为集群状态，那么集群没法继续工作。但是实质上在（b）状态 S1 返回客户端 集群状态变更请求完成之后，实质上是认为可独立进入正常状态。
+
+![single-member-available.jpg](http://tom.nos-eastchina1.126.net/single-member-available.jpg?imageView&thumbnail=400x0&quality=100)
+
+另一方面，即使没有提交到一个多数派，也可以截断，没什么问题。(这里不多做展开)
+
+**另一方面可靠性&正确性**
+
+raft协议 Configuration 请求和普通的用户写请求是可以并行的，所以在并发进行的时候，用户写请求提交的备份数是无法确保是在Configuration Change之前的备份数还是备份之后的备份数。但是这个没有办法，因为在并发情况下本来就没法保证，这是保证Configuration截断系统持续可用带来的代价。(只要确保在多数派存活情况下不丢失即可（PS：一次变更一个节点情况下，返回客户端成功，其中必然存在一个提交了客户端节点的 Server 被选举为Leader）)
+
+
+* 关注点3
+
+single membership change 其他方面的safty保障是跟原始的Basic Raft是一样的（在各个协议处理细节上对此类请求未有任何特殊待遇），即只要一个多数派（不管是新的还是老的）将 single membership change 提交并返回给客户端成功之后，接下来无论节点怎么重启，都会保障确保新的Leader将会在已经知晓（应用）新的，前一轮变更成功的基础上处理接下来的请求：可以是读写请求、当然也可以是新的一轮Configuration 请求。
+
+
+#### 2.3.2 初始状态如何进入最小备份状态
+
+比如如何进入3副本的集群状态。可以使用系统元素的Single MemberShip 变更算法实现。
+
+刚开始节点的副本状态最简单为一个节点1（自己同意自己非常简单），得到返回之后，再选择添加一个副本，达到2个副本的状态。然后再添加一个副本，变成三副本状态，满足对系统可用性和可靠性的要求，此事该raft实例科对外提供服务。
 
 
 
->  可用性相关
+#### 2.4 其他需要关注的事项
 
-1: CacheUp
+* servers process incoming RPC requests without consulting their current configurations.
 
-2: Removing the Current Leader
+* CacheUp：为了保障系统的可靠性和可用性，加入 no-voting membership状态，进行cacheup，需要加入的节点将历史LogEntry基本全部Get到之后再发送 Configuration。
 
-3 Disrptive serves
-
-
-4 可用性论证
-
-
-
-
-3. 拓展点：刚开始是如何形成一个初始的Cluster MemberShip的？
-
-
-
-
-
-#### 2.4 线性一致性
-
-
+* Disrptive serves：为了防止移除的节点由于没有接收到新的Leader的心跳，而发起Leader选举而扰绕当前正在进行的集群状态。集群中节点在Leader心跳租约期间内收到Leader选举请求可以直接Deny。(PS：当然对于一些确定性的事情，比如发现Leader listen port reset，那么可以发起强制Leader选举的请求)
 
 
 ### 3 参考文献
